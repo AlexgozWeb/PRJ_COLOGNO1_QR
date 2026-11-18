@@ -62,8 +62,8 @@ export default function StatsPage({ code, onExit }: { code: string; onExit: () =
           <div className="statGrid">
             <div className="stat"><b>{s.soci}</b><span>Soci (esclusi tutori)</span></div>
             <div className="stat"><b>{s.sociVotanti}</b><span>Soci aventi diritto al voto</span></div>
-            <div className="stat"><b>{s.registrati}</b><span>Persone registrate</span></div>
-            <div className="stat"><b>{s.votantiRegistrati}</b><span>Aventi diritto al voto registrati</span></div>
+            <div className="stat"><b>{s.registrati}</b>            <span>Persone registrate (Soci + Tutori)</span></div>
+                        <div className="stat"><b>{s.votantiRegistrati}</b><span>Soci aventi diritto al voto registrati</span></div>
           </div>
           <h2>Quorum</h2>
           <Gauge reg={s.votantiRegistrati} tot={s.votantiTotali} />

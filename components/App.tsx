@@ -185,12 +185,8 @@ export default function App() {
           <label className="consent">
             <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} />
             <span>
-              Dichiaro di aver preso visione dell'informativa e acconsento al trattamento dei miei dati personali, da parte del Gruppo Scout Cologno Monzese 1,
-              al solo fine di registrare la mia presenza all'Assemblea dei Soci del 27/11/2026. I dati sono già in possesso del Gruppo in
-              quanto forniti all'atto dell'ammissione a socio; oltre a questi vengono registrati la data e l'ora della presenza e l'indirizzo IP del
-              dispositivo, per finalità di sicurezza e verifica. Il trattamento è senza scopo di lucro, i dati non sono diffusi né ceduti a terzi
-              e sono conservati per il tempo necessario agli adempimenti dell'Assemblea (Reg. UE 2016/679, GDPR). Per esercitare i tuoi diritti
-              contatta l'amministratore del Gruppo. Se mi registro come tutore, dichiaro di farlo anche per conto dei ragazzi e degli altri tutori elencati nel riepilogo.
+              Acconsento a comunicare i miei dati al Gruppo Scout Cologno Monzese 1 esclusivamente per la gestione delle presenze
+              all'Assemblea dei Soci del 27/11/2026. Se sono tutore, la registrazione vale anche per i ragazzi e gli altri tutori elencati.
             </span>
           </label>
           <div className="actions">

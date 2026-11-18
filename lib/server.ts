@@ -31,6 +31,15 @@ export function accessGranted(code: unknown): boolean {
   return timingSafeEqual(h(code.trim()), h(expected.trim()));
 }
 
+/** Codice amministratore (ADMIN_CODE): dà accesso alla pagina statistiche. Senza variabile è sempre negato. */
+export function adminGranted(code: unknown): boolean {
+  const expected = process.env.ADMIN_CODE;
+  if (!expected) return process.env.MOCK_SHEET === "1" && code === "admin1";
+  if (typeof code !== "string" || code.length > 200) return false;
+  const h = (s: string) => createHash("sha256").update(s).digest();
+  return timingSafeEqual(h(code.trim()), h(expected.trim()));
+}
+
 export function parseInput(body: unknown): PersonInput | null {
   if (!body || typeof body !== "object") return null;
   const b = body as Record<string, unknown>;

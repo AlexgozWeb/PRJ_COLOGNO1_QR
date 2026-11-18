@@ -63,3 +63,9 @@ dd { margin: 0; font-weight: 600; word-break: break-word; }
 .accessForm { width: 100%; max-width: 320px; display: flex; flex-direction: column; gap: 6px; align-items: stretch; text-align: left; }
 .accessForm .field span { color: var(--muted); }
 .accessForm .field small { color: #fca5a5; }
+.stats { gap: 14px; }
+.statGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 100%; max-width: 420px; }
+.stat { background: #334155; border-radius: 12px; padding: 12px; text-align: center; }
+.stat b { display: block; font-size: 2rem; }
+.stat span { font-size: .8rem; color: #cbd5e1; }
+.gauge { width: 100%; max-width: 420px; }

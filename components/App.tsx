@@ -2,12 +2,14 @@
 
 import { useEffect, useState } from "react";
 import RegistrationForm, { type Person } from "./RegistrationForm";
+import StatsPage from "./StatsPage";
 
 type Kid = { nome: string; cognome: string; dataNascita: string; registered: boolean };
 type View = { nome: string; cognome: string; dataNascita: string; luogoNascita: string; email: string };
 type Step =
   | { s: "loading" }
   | { s: "landing" }
+  | { s: "stats" }
   | { s: "form" }
   | { s: "notfound" }
   | { s: "summary"; person: View; kids: Kid[]; coTutors: Kid[] }
@@ -61,7 +63,10 @@ export default function App() {
     setCodeErr("");
     try {
       const res = await fetch("/api/access", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ accessCode: code }) });
-      if (res.ok) setStep({ s: "form" });
+      if (res.ok) {
+        const d = await res.json().catch(() => ({}));
+        setStep(d.admin ? { s: "stats" } : { s: "form" });
+      }
       else setCodeErr((await res.json().catch(() => ({}))).error || "Codice errato.");
     } catch {
       setCodeErr("Errore di rete, riprova.");
@@ -122,6 +127,7 @@ export default function App() {
     setCodeErr("");
     setStep({ s: "landing" });
   };
+  if (step.s === "stats") return <StatsPage code={code} onExit={goHome} />;
   return (
     <>
       <main className={`screen${overlay ? " blur" : ""}`}>

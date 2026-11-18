@@ -9,6 +9,7 @@ export interface SheetRow {
   luogoNascita: string;
   email: string;
   presente: boolean;
+  votante?: boolean; // colonna "Votante" (P)
   id: string;
   ip?: string;
   timestamp: string;

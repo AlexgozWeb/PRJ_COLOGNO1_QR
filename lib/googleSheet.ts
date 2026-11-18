@@ -65,6 +65,9 @@ export class GoogleSheetStore implements SheetStore {
     ) as Record<keyof typeof HEADERS, number>;
     for (const [k, i] of Object.entries(idx)) if (i < 0) throw new Error(`Intestazione mancante: ${k}`);
     const L = colIndex(this.colL), M = colIndex(this.colM), O = colIndex(this.colO);
+    const hv = header.indexOf("votante");
+    const P = hv >= 0 ? hv : colIndex(process.env.COL_VOTANTE || "P");
+    const isTrue = (v: unknown) => v === true || String(v).trim().toUpperCase() === "TRUE";
     const s = (r: unknown[], i: number) => String(r[i] ?? "").trim();
     return values.slice(1).map((r, i) => ({
       rowNumber: i + 2,
@@ -77,6 +80,7 @@ export class GoogleSheetStore implements SheetStore {
       luogoNascita: s(r, idx.luogoNascita),
       email: s(r, idx.email),
       presente: r[L] === true || String(r[L]).toUpperCase() === "TRUE",
+      votante: isTrue(r[P]),
       id: s(r, M),
       timestamp: s(r, O),
     }));

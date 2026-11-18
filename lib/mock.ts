@@ -1,6 +1,6 @@
 import type { Registration, SheetRow, SheetStore } from "./types";
 
-const base = { luogoNascita: "Monza", email: "", presente: false, id: "", timestamp: "" };
+const base = { luogoNascita: "Monza", email: "", presente: false, votante: false, id: "", timestamp: "" };
 
 /** Dati interamente fittizi, solo per sviluppo locale (MOCK_SHEET=1) e test. */
 export function fakeRows(): SheetRow[] {

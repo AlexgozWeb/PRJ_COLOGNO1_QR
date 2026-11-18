@@ -21,15 +21,16 @@ export interface Kid {
   nome: string;
   cognome: string;
   dataNascita: string;
+  registered: boolean;
 }
 
 export type LookupResult =
   | { status: "not_found" }
-  | { status: "found"; person: PersonView; kids: Kid[] }
+  | { status: "found"; person: PersonView; kids: Kid[]; coTutors: Kid[] }
   | { status: "already"; person: PersonView; timestamp: string };
 
 export type RegisterResult =
-  | { status: "ok"; person: PersonView; id: string; timestamp: string }
+  | { status: "ok"; person: PersonView; id: string; timestamp: string; kids: Kid[]; coTutors: Kid[] }
   | { status: "already"; person: PersonView; timestamp: string }
   | { status: "not_found" };
 
@@ -57,20 +58,33 @@ function view(r: SheetRow, rows: SheetRow[]): PersonView {
   };
 }
 
-function kidsOf(all: SheetRow[], mine: SheetRow[]): Kid[] {
-  if (!mine.some((r) => normalizeText(r.tipo) === "TUTORE")) return [];
+interface Related {
+  rows: SheetRow[];
+  kids: Kid[];
+  coTutors: Kid[];
+}
+
+/** Se la persona è tutore: righe con lo stesso Codice Socio (ragazzi = Socio, altri tutori = Tutore). */
+function relatedOf(all: SheetRow[], mine: SheetRow[]): Related {
+  const out: Related = { rows: [], kids: [], coTutors: [] };
+  if (!mine.some((r) => normalizeText(r.tipo) === "TUTORE")) return out;
   const codes = new Set(mine.map((r) => r.codiceSocio));
-  const seen = new Set<string>();
-  const out: Kid[] = [];
+  const mineRows = new Set(mine.map((r) => r.rowNumber));
+  const seen = new Map<string, Kid>();
   for (const r of all) {
-    if (!codes.has(r.codiceSocio) || normalizeText(r.tipo) !== "SOCIO") continue;
-    if (mine.some((m) => m.rowNumber === r.rowNumber)) continue;
-    const k = { nome: r.nome, cognome: r.cognome, dataNascita: r.dataNascita ? isoToItalian(r.dataNascita) : "" };
-    const key = `${k.nome}|${k.cognome}|${k.dataNascita}`;
-    if (!seen.has(key)) {
-      seen.add(key);
-      out.push(k);
+    if (!codes.has(r.codiceSocio) || mineRows.has(r.rowNumber)) continue;
+    const tipo = normalizeText(r.tipo);
+    if (tipo !== "SOCIO" && tipo !== "TUTORE") continue;
+    out.rows.push(r);
+    const key = `${tipo}|${normalizeText(r.nome)}|${normalizeText(r.cognome)}|${r.dataNascita}`;
+    const known = seen.get(key);
+    if (known) {
+      known.registered ||= r.presente;
+      continue;
     }
+    const k: Kid = { nome: r.nome, cognome: r.cognome, dataNascita: r.dataNascita ? isoToItalian(r.dataNascita) : "", registered: r.presente };
+    seen.set(key, k);
+    (tipo === "SOCIO" ? out.kids : out.coTutors).push(k);
   }
   return out;
 }
@@ -82,7 +96,8 @@ export async function lookup(store: SheetStore, p: PersonInput, _ip = ""): Promi
   const person = view(mine[0], mine);
   const done = mine.find((r) => r.presente);
   if (done) return { status: "already", person, timestamp: done.timestamp };
-  return { status: "found", person, kids: kidsOf(all, mine) };
+  const { kids, coTutors } = relatedOf(all, mine);
+  return { status: "found", person, kids, coTutors };
 }
 
 export async function register(store: SheetStore, p: PersonInput, ip = ""): Promise<RegisterResult> {
@@ -92,8 +107,11 @@ export async function register(store: SheetStore, p: PersonInput, ip = ""): Prom
   const person = view(mine[0], mine);
   const done = mine.find((r) => r.presente);
   if (done) return { status: "already", person, timestamp: done.timestamp };
+  const rel = relatedOf(all, mine);
   const id = generateId(new Set(all.map((r) => r.id).filter(Boolean)));
   const timestamp = romeTimestamp();
-  await store.writeRegistration({ rowNumbers: mine.map((r) => r.rowNumber), id, ip, timestamp });
-  return { status: "ok", person, id, timestamp };
+  // le righe correlate già registrate non vengono sovrascritte
+  const rowNumbers = [...mine, ...rel.rows.filter((r) => !r.presente)].map((r) => r.rowNumber);
+  await store.writeRegistration({ rowNumbers, id, ip, timestamp });
+  return { status: "ok", person, id, timestamp, kids: rel.kids, coTutors: rel.coTutors };
 }

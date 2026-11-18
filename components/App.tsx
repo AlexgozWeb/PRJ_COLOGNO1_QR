@@ -3,16 +3,16 @@
 import { useEffect, useState } from "react";
 import RegistrationForm, { type Person } from "./RegistrationForm";
 
-type Kid = { nome: string; cognome: string; dataNascita: string };
+type Kid = { nome: string; cognome: string; dataNascita: string; registered: boolean };
 type View = { nome: string; cognome: string; dataNascita: string; luogoNascita: string; email: string };
 type Step =
   | { s: "loading" }
   | { s: "landing" }
   | { s: "form" }
   | { s: "notfound" }
-  | { s: "summary"; person: View; kids: Kid[] }
+  | { s: "summary"; person: View; kids: Kid[]; coTutors: Kid[] }
   | { s: "already"; person: View; timestamp: string }
-  | { s: "done"; person: View; id: string; timestamp: string }
+  | { s: "done"; person: View; id: string; timestamp: string; kids: Kid[]; coTutors: Kid[] }
   | { s: "ko"; message: string };
 
 async function post(path: string, body: Person & { accessCode?: string }) {
@@ -22,7 +22,9 @@ async function post(path: string, body: Person & { accessCode?: string }) {
   return data;
 }
 
-function downloadReceipt(p: View, id: string, ts: string) {
+function downloadReceipt(p: View, id: string, ts: string, kids: Kid[], coTutors: Kid[]) {
+  const list = (title: string, l: Kid[]) =>
+    l.length ? ["", title, ...l.map((k) => `- ${k.cognome} ${k.nome} (${k.dataNascita})`)] : [];
   const text = [
     "Assemblea dei Soci 27/11/2026 - Gruppo Scout Cologno Monzese 1",
     "RICEVUTA DI REGISTRAZIONE PRESENZA",
@@ -33,6 +35,8 @@ function downloadReceipt(p: View, id: string, ts: string) {
     `Luogo di nascita: ${p.luogoNascita}`,
     `ID_UNIQUE: ${id}`,
     `Registrato il: ${ts}`,
+    ...list("Registrati insieme a te (ragazzi):", kids),
+    ...list("Registrati insieme a te (altri tutori):", coTutors),
     "",
   ].join("\r\n");
   const url = URL.createObjectURL(new Blob([text], { type: "text/plain;charset=utf-8" }));
@@ -79,7 +83,7 @@ export default function App() {
       const r = await post("/api/lookup", { ...p, accessCode: code });
       if (r.status === "not_found") setStep({ s: "notfound" });
       else if (r.status === "already") setStep({ s: "already", person: r.person, timestamp: r.timestamp });
-      else setStep({ s: "summary", person: r.person, kids: r.kids });
+      else setStep({ s: "summary", person: r.person, kids: r.kids, coTutors: r.coTutors });
     } catch (e) {
       setStep({ s: "ko", message: (e as Error).message });
     } finally {
@@ -92,7 +96,7 @@ export default function App() {
     setBusy(true);
     try {
       const r = await post("/api/register", { ...input, accessCode: code });
-      if (r.status === "ok") setStep({ s: "done", person: r.person, id: r.id, timestamp: r.timestamp });
+      if (r.status === "ok") setStep({ s: "done", person: r.person, id: r.id, timestamp: r.timestamp, kids: r.kids, coTutors: r.coTutors });
       else if (r.status === "already") setStep({ s: "already", person: r.person, timestamp: r.timestamp });
       else setStep({ s: "notfound" });
     } catch (e) {
@@ -157,9 +161,20 @@ export default function App() {
           {step.kids.length > 0 && (
             <div className="kids">
               <strong>Ragazzi seguiti</strong>
-              <ul>{step.kids.map((k, i) => <li key={i}>{k.nome} {k.cognome} — {k.dataNascita}</li>)}</ul>
-              <small>Viene registrata solo la tua presenza.</small>
+              <ul className="checks">{step.kids.map((k, i) => <li key={i}><Check on={k.registered} />{k.nome} {k.cognome} — {k.dataNascita}</li>)}</ul>
             </div>
+          )}
+          {step.coTutors.length > 0 && (
+            <div className="kids">
+              <strong>Altri tutori</strong>
+              <ul className="checks">{step.coTutors.map((k, i) => <li key={i}><Check on={k.registered} />{k.nome} {k.cognome} — {k.dataNascita}</li>)}</ul>
+            </div>
+          )}
+          {(step.kids.length > 0 || step.coTutors.length > 0) && (
+            <p className="note">
+              <Check on /> già registrato &nbsp; <Check on={false} /> non ancora registrato.<br />
+              La registrazione varrà anche per le persone elencate qui sopra.
+            </p>
           )}
           <label className="consent">
             <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} />
@@ -169,7 +184,7 @@ export default function App() {
               quanto forniti all'atto dell'ammissione a socio; oltre a questi vengono registrati la data e l'ora della presenza e l'indirizzo IP del
               dispositivo, per finalità di sicurezza e verifica. Il trattamento è senza scopo di lucro, i dati non sono diffusi né ceduti a terzi
               e sono conservati per il tempo necessario agli adempimenti dell'Assemblea (Reg. UE 2016/679, GDPR). Per esercitare i tuoi diritti
-              contatta l'amministratore del Gruppo.
+              contatta l'amministratore del Gruppo. Se mi registro come tutore, dichiaro di farlo anche per conto dei ragazzi e degli altri tutori elencati nel riepilogo.
             </span>
           </label>
           <div className="actions">
@@ -196,8 +211,11 @@ export default function App() {
           <p>{step.person.nome} {step.person.cognome}</p>
           <div className="idbox">{step.id}</div>
           <p>Registrato il {step.timestamp}</p>
+          {(step.kids.length > 0 || step.coTutors.length > 0) && (
+            <p className="note">Presenza registrata anche per: {[...step.kids, ...step.coTutors].map((k) => `${k.nome} ${k.cognome}`).join(", ")}.</p>
+          )}
           <div className="actions">
-            <button className="btn" onClick={() => downloadReceipt(step.person, step.id, step.timestamp)}>Salva ricevuta (.txt)</button>
+            <button className="btn" onClick={() => downloadReceipt(step.person, step.id, step.timestamp, step.kids, step.coTutors)}>Salva ricevuta (.txt)</button>
             <button className="btn secondary" onClick={goHome}>Torna alla home</button>
           </div>
         </div></div>
@@ -216,6 +234,12 @@ export default function App() {
         </div></div>
       )}
     </>
+  );
+}
+
+function Check({ on }: { on: boolean }) {
+  return (
+    <span className={`tick ${on ? "on" : "off"}`} role="img" aria-label={on ? "già registrato" : "non ancora registrato"}>✓</span>
   );
 }
 

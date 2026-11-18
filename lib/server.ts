@@ -1,3 +1,4 @@
+import { createHash, timingSafeEqual } from "node:crypto";
 import { GoogleSheetStore } from "./googleSheet";
 import { MockSheetStore } from "./mock";
 import type { SheetStore } from "./types";
@@ -19,6 +20,15 @@ export function rateLimited(ip: string, max = 20, windowMs = 60_000): boolean {
   recent.push(now);
   hits.set(ip, recent);
   return recent.length > max;
+}
+
+/** Codice di accesso fisso (ACCESS_CODE). Senza variabile l'accesso è negato, salvo in modalità MOCK_SHEET. */
+export function accessGranted(code: unknown): boolean {
+  const expected = process.env.ACCESS_CODE;
+  if (!expected) return process.env.MOCK_SHEET === "1";
+  if (typeof code !== "string" || code.length > 200) return false;
+  const h = (s: string) => createHash("sha256").update(s).digest();
+  return timingSafeEqual(h(code.trim()), h(expected.trim()));
 }
 
 export function parseInput(body: unknown): PersonInput | null {

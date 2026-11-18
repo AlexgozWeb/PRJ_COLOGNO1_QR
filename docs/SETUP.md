@@ -21,6 +21,7 @@ Nel Google Sheet: **Condividi** → incolla la `client_email` del service accoun
 | `GOOGLE_SHEET_ID` | ID del foglio |
 | `GOOGLE_SERVICE_ACCOUNT_EMAIL` | `client_email` |
 | `GOOGLE_PRIVATE_KEY` | `private_key` completa (con i `\n`) |
+| `ACCESS_CODE` | codice di accesso fisso chiesto nella landing (segreto) |
 | `SHEET_NAME`, `COL_PRESENZA`, `COL_ID`, `COL_IP`, `COL_TIMESTAMP` | opzionali (Presenze, L, M, N, O) |
 
 Per lo sviluppo locale copia `.env.example` in `.env.local` (ignorato da git).

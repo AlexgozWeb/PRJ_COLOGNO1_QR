@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getStore, parseInput, rateLimited } from "@/lib/server";
+import { accessGranted, getStore, parseInput, rateLimited } from "@/lib/server";
 import { lookup, register } from "@/lib/service";
 
 export async function handle(req: NextRequest, fn: typeof lookup | typeof register) {
@@ -12,6 +12,8 @@ export async function handle(req: NextRequest, fn: typeof lookup | typeof regist
     return NextResponse.json({ error: "Richiesta non valida." }, { status: 400 });
   }
   const input = parseInput(body);
+  if (!accessGranted((body as { accessCode?: unknown } | null)?.accessCode))
+    return NextResponse.json({ error: "Codice di accesso non valido." }, { status: 401 });
   if (!input) return NextResponse.json({ error: "Dati non validi." }, { status: 400 });
   try {
     return NextResponse.json(await fn(getStore(), input, ip), { headers: { "Cache-Control": "no-store" } });

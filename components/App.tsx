@@ -15,7 +15,7 @@ type Step =
   | { s: "done"; person: View; id: string; timestamp: string }
   | { s: "ko"; message: string };
 
-async function post(path: string, body: Person) {
+async function post(path: string, body: Person & { accessCode?: string }) {
   const res = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.error || "Errore di rete");
@@ -47,6 +47,23 @@ export default function App() {
   const [step, setStep] = useState<Step>({ s: "loading" });
   const [input, setInput] = useState<Person | null>(null);
   const [busy, setBusy] = useState(false);
+  const [code, setCode] = useState("");
+  const [codeErr, setCodeErr] = useState("");
+
+  async function onAccess(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setCodeErr("");
+    try {
+      const res = await fetch("/api/access", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ accessCode: code }) });
+      if (res.ok) setStep({ s: "form" });
+      else setCodeErr((await res.json().catch(() => ({}))).error || "Codice errato.");
+    } catch {
+      setCodeErr("Errore di rete, riprova.");
+    } finally {
+      setBusy(false);
+    }
+  }
 
   useEffect(() => {
     const t = setTimeout(() => setStep({ s: "landing" }), 1800);
@@ -57,7 +74,7 @@ export default function App() {
     setBusy(true);
     try {
       setInput(p);
-      const r = await post("/api/lookup", p);
+      const r = await post("/api/lookup", { ...p, accessCode: code });
       if (r.status === "not_found") setStep({ s: "notfound" });
       else if (r.status === "already") setStep({ s: "already", person: r.person, timestamp: r.timestamp });
       else setStep({ s: "summary", person: r.person, kids: r.kids });
@@ -72,7 +89,7 @@ export default function App() {
     if (!input) return;
     setBusy(true);
     try {
-      const r = await post("/api/register", input);
+      const r = await post("/api/register", { ...input, accessCode: code });
       if (r.status === "ok") setStep({ s: "done", person: r.person, id: r.id, timestamp: r.timestamp });
       else if (r.status === "already") setStep({ s: "already", person: r.person, timestamp: r.timestamp });
       else setStep({ s: "notfound" });
@@ -94,6 +111,8 @@ export default function App() {
   const overlay = step.s !== "landing";
   const goHome = () => {
     setInput(null);
+    setCode("");
+    setCodeErr("");
     setStep({ s: "landing" });
   };
   return (
@@ -102,7 +121,14 @@ export default function App() {
         <img className="logo" src="/logo.png" alt="Gruppo Scout Cologno Monzese 1" />
         <h1>Registrazione<br />Assemblea dei Soci<br />27/11/2026</h1>
         <p className="sub">Gruppo Scout Cologno Monzese 1 — registra qui la tua presenza all'Assemblea.</p>
-        <button className="btn" onClick={() => setStep({ s: "form" })}>Registra la tua presenza</button>
+        <form className="accessForm" onSubmit={onAccess}>
+          <label className="field">
+            <span>Codice di accesso</span>
+            <input type="password" autoComplete="off" value={code} maxLength={200} onChange={(e) => setCode(e.target.value)} className={codeErr ? "bad" : ""} />
+            {codeErr && <small>{codeErr}</small>}
+          </label>
+          <button className="btn" type="submit" disabled={busy || !code.trim()}>{busy ? "Verifica…" : "Registra la tua presenza"}</button>
+        </form>
       </main>
 
       {step.s === "form" && (

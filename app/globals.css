@@ -52,3 +52,6 @@ dd { margin: 0; font-weight: 600; word-break: break-word; }
 .badge.ok { background: var(--ok); }
 .badge.ko { background: var(--err); }
 .center { text-align: center; }
+.accessForm { width: 100%; max-width: 320px; display: flex; flex-direction: column; gap: 6px; align-items: stretch; text-align: left; }
+.accessForm .field span { color: var(--muted); }
+.accessForm .field small { color: #fca5a5; }

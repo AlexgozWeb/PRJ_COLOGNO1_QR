@@ -67,7 +67,7 @@ export class GoogleSheetStore implements SheetStore {
     const L = colIndex(this.colL), M = colIndex(this.colM), O = colIndex(this.colO);
     const hv = header.indexOf("votante");
     const P = hv >= 0 ? hv : colIndex(process.env.COL_VOTANTE || "P");
-    const isTrue = (v: unknown) => v === true || String(v).trim().toUpperCase() === "TRUE";
+    const isTrue = (v: unknown) => v === true || ["TRUE", "SI", "SÌ", "S", "X", "1", "VERO", "YES"].includes(String(v).trim().toUpperCase());
     const s = (r: unknown[], i: number) => String(r[i] ?? "").trim();
     return values.slice(1).map((r, i) => ({
       rowNumber: i + 2,

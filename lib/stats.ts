@@ -4,7 +4,7 @@ import type { SheetRow, SheetStore } from "./types";
 export interface Stats {
   soci: number; // persone con almeno una riga Tipo=Socio
   sociVotanti: number; // soci con Votante=TRUE
-  registrati: number; // persone registrate (soci e tutori)
+  registrati: number; // righe con Presenza=TRUE (chi è socio e tutore conta più volte)
   votantiTotali: number; // persone con diritto di voto (quorum = 100%)
   votantiRegistrati: number; // aventi diritto al voto già registrati
   aggiornato: string;
@@ -25,7 +25,7 @@ export function computeStats(rows: SheetRow[]): Stats {
   return {
     soci: all.filter((p) => p.socio).length,
     sociVotanti: all.filter((p) => p.socio && p.votante).length,
-    registrati: all.filter((p) => p.presente).length,
+    registrati: rows.filter((r) => r.presente).length,
     votantiTotali: all.filter((p) => p.votante).length,
     votantiRegistrati: all.filter((p) => p.votante && p.presente).length,
     aggiornato: new Date().toISOString(),

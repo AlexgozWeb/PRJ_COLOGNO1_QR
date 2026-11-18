@@ -52,6 +52,8 @@ dd { margin: 0; font-weight: 600; word-break: break-word; }
 .badge.ok { background: var(--ok); }
 .badge.ko { background: var(--err); }
 .center { text-align: center; }
+.consent { display: flex; gap: 10px; align-items: flex-start; margin-top: 14px; font-size: .78rem; line-height: 1.35; color: #334155; cursor: pointer; }
+.consent input { width: 22px; height: 22px; flex: none; margin: 2px 0 0; accent-color: #1e293b; }
 .accessForm { width: 100%; max-width: 320px; display: flex; flex-direction: column; gap: 6px; align-items: stretch; text-align: left; }
 .accessForm .field span { color: var(--muted); }
 .accessForm .field small { color: #fca5a5; }

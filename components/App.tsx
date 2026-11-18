@@ -49,6 +49,7 @@ export default function App() {
   const [busy, setBusy] = useState(false);
   const [code, setCode] = useState("");
   const [codeErr, setCodeErr] = useState("");
+  const [consent, setConsent] = useState(false);
 
   async function onAccess(e: React.FormEvent) {
     e.preventDefault();
@@ -74,6 +75,7 @@ export default function App() {
     setBusy(true);
     try {
       setInput(p);
+      setConsent(false);
       const r = await post("/api/lookup", { ...p, accessCode: code });
       if (r.status === "not_found") setStep({ s: "notfound" });
       else if (r.status === "already") setStep({ s: "already", person: r.person, timestamp: r.timestamp });
@@ -111,6 +113,7 @@ export default function App() {
   const overlay = step.s !== "landing";
   const goHome = () => {
     setInput(null);
+    setConsent(false);
     setCode("");
     setCodeErr("");
     setStep({ s: "landing" });
@@ -158,8 +161,19 @@ export default function App() {
               <small>Viene registrata solo la tua presenza.</small>
             </div>
           )}
+          <label className="consent">
+            <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} />
+            <span>
+              Dichiaro di aver preso visione dell'informativa e acconsento al trattamento dei miei dati personali, da parte del Gruppo Scout Cologno Monzese 1,
+              al solo fine di registrare la mia presenza all'Assemblea dei Soci del 27/11/2026. I dati sono già in possesso del Gruppo in
+              quanto forniti all'atto dell'ammissione a socio; oltre a questi vengono registrati la data e l'ora della presenza e l'indirizzo IP del
+              dispositivo, per finalità di sicurezza e verifica. Il trattamento è senza scopo di lucro, i dati non sono diffusi né ceduti a terzi
+              e sono conservati per il tempo necessario agli adempimenti dell'Assemblea (Reg. UE 2016/679, GDPR). Per esercitare i tuoi diritti
+              contatta l'amministratore del Gruppo.
+            </span>
+          </label>
           <div className="actions">
-            <button className="btn" disabled={busy} onClick={onRegister}>{busy ? "Registrazione…" : "Registrati"}</button>
+            <button className="btn" disabled={busy || !consent} onClick={onRegister}>{busy ? "Registrazione…" : "Registrati"}</button>
             <button className="btn secondary" disabled={busy} onClick={() => setStep({ s: "form" })}>Indietro</button>
           </div>
         </div></div>

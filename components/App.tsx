@@ -92,6 +92,10 @@ export default function App() {
     );
 
   const overlay = step.s !== "landing";
+  const goHome = () => {
+    setInput(null);
+    setStep({ s: "landing" });
+  };
   return (
     <>
       <main className={`screen${overlay ? " blur" : ""}`}>
@@ -141,6 +145,7 @@ export default function App() {
           <h2>Utente già registrato</h2>
           <p>{step.person.nome} {step.person.cognome}</p>
           <p>Registrazione effettuata il <strong>{step.timestamp || "—"}</strong></p>
+          <div className="actions"><button className="btn" onClick={goHome}>Torna alla home</button></div>
         </div></div>
       )}
 
@@ -153,6 +158,7 @@ export default function App() {
           <p>Registrato il {step.timestamp}</p>
           <div className="actions">
             <button className="btn" onClick={() => downloadReceipt(step.person, step.id, step.timestamp)}>Salva ricevuta (.txt)</button>
+            <button className="btn secondary" onClick={goHome}>Torna alla home</button>
           </div>
         </div></div>
       )}
@@ -163,7 +169,10 @@ export default function App() {
           <h2>Registrazione non riuscita</h2>
           <p className="msg-err">{step.message}</p>
           <p>Riprova o contatta l'amministratore.</p>
-          <div className="actions"><button className="btn" onClick={() => setStep({ s: "form" })}>Riprova</button></div>
+          <div className="actions">
+            <button className="btn" onClick={() => setStep({ s: "form" })}>Riprova</button>
+            <button className="btn secondary" onClick={goHome}>Torna alla home</button>
+          </div>
         </div></div>
       )}
     </>

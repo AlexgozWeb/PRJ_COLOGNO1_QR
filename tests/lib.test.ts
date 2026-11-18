@@ -38,10 +38,12 @@ describe("service", () => {
     const r = await lookup(store, mario);
     expect(r.status).toBe("found");
     if (r.status === "found") expect(r.kids.map((k) => k.nome).sort()).toEqual(["Anna", "Luca"]);
-    const reg = await register(store, mario);
+    const reg = await register(store, mario, "203.0.113.7");
     expect(reg.status).toBe("ok");
+    expect(JSON.stringify(reg)).not.toContain("203.0.113.7");
     const rows = await store.getRows();
     expect(rows.filter((x) => x.presente).map((x) => x.nome).sort()).toEqual(["Mario", "Paolo"]);
+    expect((rows.find((x) => x.nome === "Mario") as any).ip).toBe("203.0.113.7");
   });
   it("già registrato: nessuna nuova scrittura, solo timestamp", async () => {
     const store = new MockSheetStore();

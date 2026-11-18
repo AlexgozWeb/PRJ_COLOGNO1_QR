@@ -39,6 +39,7 @@ export class GoogleSheetStore implements SheetStore {
   private sheet = process.env.SHEET_NAME || "Presenze";
   private colL = (process.env.COL_PRESENZA || "L").toUpperCase();
   private colM = (process.env.COL_ID || "M").toUpperCase();
+  private colN = (process.env.COL_IP || "N").toUpperCase();
   private colO = (process.env.COL_TIMESTAMP || "O").toUpperCase();
 
   private async api(path: string, init?: RequestInit): Promise<any> {
@@ -85,6 +86,7 @@ export class GoogleSheetStore implements SheetStore {
     const data = reg.rowNumbers.flatMap((n) => [
       { range: `'${this.sheet}'!${this.colL}${n}`, values: [[true]] },
       { range: `'${this.sheet}'!${this.colM}${n}`, values: [[reg.id]] },
+      { range: `'${this.sheet}'!${this.colN}${n}`, values: [[reg.ip]] },
       { range: `'${this.sheet}'!${this.colO}${n}`, values: [[reg.timestamp]] },
     ]);
     await this.api(`/values:batchUpdate`, {

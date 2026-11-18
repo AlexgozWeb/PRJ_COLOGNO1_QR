@@ -9,7 +9,7 @@ Web app (Vercel) raggiungibile inquadrando un QR code, per registrare la presenz
 | Votanti | Elenco aventi diritto al voto |
 | **Presenze** | Unione dei due elenchi + colonne di registrazione (unico foglio letto/scritto dalla app) |
 
-Colonne di scrittura nel foglio Presenze: **L** = presenza (TRUE), **M** = ID_UNIQUE, **O** = timestamp.
+**Colonne di scrittura** nel foglio Presenze: **L** = Presenza (TRUE), **M** = ID_UNIQUE, **N** = USER_IP (indirizzo IP dell'utente, salvato solo nel foglio e **mai mostrato** in alcuna schermata né restituito dalle API), **O** = TIMESTAMP.
 
 ## 2. Flusso utente
 1. **Loading** con insegna/logo Cologno 1 (grafica allegato 1; logo da fornire).

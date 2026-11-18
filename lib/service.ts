@@ -75,7 +75,7 @@ function kidsOf(all: SheetRow[], mine: SheetRow[]): Kid[] {
   return out;
 }
 
-export async function lookup(store: SheetStore, p: PersonInput): Promise<LookupResult> {
+export async function lookup(store: SheetStore, p: PersonInput, _ip = ""): Promise<LookupResult> {
   const all = await store.getRows();
   const mine = matches(all, p);
   if (!mine.length) return { status: "not_found" };
@@ -85,7 +85,7 @@ export async function lookup(store: SheetStore, p: PersonInput): Promise<LookupR
   return { status: "found", person, kids: kidsOf(all, mine) };
 }
 
-export async function register(store: SheetStore, p: PersonInput): Promise<RegisterResult> {
+export async function register(store: SheetStore, p: PersonInput, ip = ""): Promise<RegisterResult> {
   const all = await store.getRows(); // rilettura prima di scrivere
   const mine = matches(all, p);
   if (!mine.length) return { status: "not_found" };
@@ -94,6 +94,6 @@ export async function register(store: SheetStore, p: PersonInput): Promise<Regis
   if (done) return { status: "already", person, timestamp: done.timestamp };
   const id = generateId(new Set(all.map((r) => r.id).filter(Boolean)));
   const timestamp = romeTimestamp();
-  await store.writeRegistration({ rowNumbers: mine.map((r) => r.rowNumber), id, timestamp });
+  await store.writeRegistration({ rowNumbers: mine.map((r) => r.rowNumber), id, ip, timestamp });
   return { status: "ok", person, id, timestamp };
 }

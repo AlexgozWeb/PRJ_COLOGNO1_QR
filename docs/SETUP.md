@@ -2,7 +2,7 @@
 
 ## 1. Preparare il Google Sheet
 1. Carica `Liste_Assemblea.xlsx` su Google Drive, aprilo con Fogli Google e usa **File → Salva come Google Fogli** (serve un vero Google Sheet, non un .xlsx).
-2. Nel foglio **Presenze** la riga 1 deve avere le intestazioni: Codice Socio, Cognome, Nome, Tipo, Adulto-Giovane, Codice Fiscale, Data Nascita, Comune Nascita, Cellulare, Email, Data Delibera Ammissione. Le colonne di registrazione sono **L = Presenza (TRUE/FALSE)**, **M = ID_UNIQUE**, **O = timestamp**. (Nel file di esempio M è "Votante" e O non esiste: rinomina/riorganizza, oppure cambia `COL_ID`/`COL_TIMESTAMP`.)
+2. Nel foglio **Presenze** la riga 1 deve avere le intestazioni: Codice Socio, Cognome, Nome, Tipo, Adulto-Giovane, Codice Fiscale, Data Nascita, Comune Nascita, Cellulare, Email, Data Delibera Ammissione. Le colonne di registrazione sono **L = Presenza (TRUE/FALSE)**, **M = ID_UNIQUE**, **N = USER_IP**, **O = TIMESTAMP**. (Nel file di esempio M è "Votante" e N/O non esistono: rinomina/aggiungi le intestazioni, oppure cambia `COL_ID`/`COL_IP`/`COL_TIMESTAMP`.) L'IP è solo scritto nel foglio, mai mostrato nell'app.
 3. Copia l'**ID del foglio** dall'URL: `https://docs.google.com/spreadsheets/d/<ID>/edit`.
 
 ## 2. Creare il service account
@@ -21,7 +21,7 @@ Nel Google Sheet: **Condividi** → incolla la `client_email` del service accoun
 | `GOOGLE_SHEET_ID` | ID del foglio |
 | `GOOGLE_SERVICE_ACCOUNT_EMAIL` | `client_email` |
 | `GOOGLE_PRIVATE_KEY` | `private_key` completa (con i `\n`) |
-| `SHEET_NAME`, `COL_PRESENZA`, `COL_ID`, `COL_TIMESTAMP` | opzionali (Presenze, L, M, O) |
+| `SHEET_NAME`, `COL_PRESENZA`, `COL_ID`, `COL_IP`, `COL_TIMESTAMP` | opzionali (Presenze, L, M, N, O) |
 
 Per lo sviluppo locale copia `.env.example` in `.env.local` (ignorato da git).
 

@@ -10,12 +10,14 @@ export interface SheetRow {
   email: string;
   presente: boolean;
   id: string;
+  ip?: string;
   timestamp: string;
 }
 
 export interface Registration {
   rowNumbers: number[];
   id: string;
+  ip: string;
   timestamp: string;
 }
 

@@ -14,7 +14,7 @@ export async function handle(req: NextRequest, fn: typeof lookup | typeof regist
   const input = parseInput(body);
   if (!input) return NextResponse.json({ error: "Dati non validi." }, { status: 400 });
   try {
-    return NextResponse.json(await fn(getStore(), input), { headers: { "Cache-Control": "no-store" } });
+    return NextResponse.json(await fn(getStore(), input, ip), { headers: { "Cache-Control": "no-store" } });
   } catch (e) {
     console.error(e instanceof Error ? e.message : "errore");
     return NextResponse.json({ error: "Servizio temporaneamente non disponibile." }, { status: 500 });

@@ -20,6 +20,6 @@ export class MockSheetStore implements SheetStore {
   }
   async writeRegistration(reg: Registration) {
     for (const r of this.rows)
-      if (reg.rowNumbers.includes(r.rowNumber)) Object.assign(r, { presente: true, id: reg.id, timestamp: reg.timestamp });
+      if (reg.rowNumbers.includes(r.rowNumber)) Object.assign(r, { presente: true, id: reg.id, ip: reg.ip, timestamp: reg.timestamp });
   }
 }

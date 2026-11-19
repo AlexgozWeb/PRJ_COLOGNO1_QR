@@ -30,7 +30,7 @@ function Gauge({ reg, tot }: { reg: number; tot: number }) {
   );
 }
 
-export default function StatsPage({ code, onExit }: { code: string; onExit: () => void }) {
+export default function StatsPage({ code, onExit, onReport }: { code: string; onExit: () => void; onReport: () => void }) {
   const [s, setS] = useState<Stats | null>(null);
   const [err, setErr] = useState("");
 
@@ -70,6 +70,7 @@ export default function StatsPage({ code, onExit }: { code: string; onExit: () =
           <p className="sub">Quorum raggiunto con {quorum} presenti (50% + 1) · aggiornato ogni 10 s</p>
         </>
       )}
+      <button className="btn" onClick={onReport}>Report di dettaglio</button>
       <button className="btn" onClick={onExit}>Esci</button>
     </main>
   );

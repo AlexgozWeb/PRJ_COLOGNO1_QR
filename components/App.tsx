@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import RegistrationForm, { type Person } from "./RegistrationForm";
 import StatsPage from "./StatsPage";
+import ReportPage from "./ReportPage";
 
 type Kid = { nome: string; cognome: string; dataNascita: string; registered: boolean };
 type View = { nome: string; cognome: string; dataNascita: string; luogoNascita: string; email: string };
@@ -10,6 +11,7 @@ type Step =
   | { s: "loading" }
   | { s: "landing" }
   | { s: "stats" }
+  | { s: "report" }
   | { s: "form" }
   | { s: "notfound" }
   | { s: "summary"; person: View; kids: Kid[]; coTutors: Kid[] }
@@ -127,7 +129,8 @@ export default function App() {
     setCodeErr("");
     setStep({ s: "landing" });
   };
-  if (step.s === "stats") return <StatsPage code={code} onExit={goHome} />;
+  if (step.s === "stats") return <StatsPage code={code} onExit={goHome} onReport={() => setStep({ s: "report" })} />;
+  if (step.s === "report") return <ReportPage code={code} onBack={() => setStep({ s: "stats" })} />;
   return (
     <>
       <main className={`screen${overlay ? " blur" : ""}`}>

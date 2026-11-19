@@ -19,6 +19,7 @@ Web app (Vercel) raggiungibile inquadrando un QR code, per registrare la presenz
    - non trovato → messaggio di errore e invito a contattare l'amministratore;
    - trovato e **non ancora registrato** → **riepilogo** con solo: nome, cognome, data di nascita, luogo di nascita, email (nessun altro dato personale). Se è un **tutore** (`Tipo = Tutore`), si mostrano anche nome, cognome e data di nascita dei **ragazzi seguiti** (righe con stesso Codice Socio e `Tipo = Socio`) e degli **altri tutori** (stesso Codice Socio, `Tipo = Tutore`); **la registrazione del tutore vale anche per i ragazzi e per gli altri tutori**: tutte le loro righe ricevono TRUE, lo stesso ID_UNIQUE, IP e timestamp (le righe già registrate non vengono sovrascritte). Per un altro tutore che si presenta dopo, la riga risulta già registrata ("utente già registrato"). Un socio non tutore registra solo sé stesso;
    - trovato e **già registrato** (L = TRUE) → nessuna nuova registrazione, **nessun ID mostrato**: messaggio "utente già registrato" con il solo timestamp.
+   Prima di **Registrati** va spuntato il **consenso** a comunicare i dati al Gruppo Scout Cologno Monzese 1, esclusivamente per la gestione delle presenze (il pulsante resta disabilitato finché non è spuntato).
 5. **Registrati** → aggiornamento della riga (L, M, O); se la persona compare su più righe (stessi dati, codici socio diversi) vengono aggiornate tutte con lo stesso ID.
 6. **Esito finale**: successo (con ID_UNIQUE di 8 caratteri alfanumerici maiuscoli) o KO. Download locale di un file `.txt` con dati, ID_UNIQUE e timestamp.
 
@@ -29,6 +30,9 @@ Web app (Vercel) raggiungibile inquadrando un QR code, per registrare la presenz
 - **API**:
   - `POST /api/lookup` — normalizza e cerca la persona in Presenze; restituisce dati e, se tutore, i ragazzi collegati; segnala se già registrato.
   - `POST /api/register` — rilegge la riga, verifica che non sia già registrata, genera ID_UNIQUE, scrive L/M/O, restituisce l'esito.
+  - `POST /api/access` — verifica il codice inserito nella landing: `ACCESS_CODE` per la registrazione, `ADMIN_CODE` per l'area amministratore (risposta `admin: true`).
+  - `POST /api/stats` — solo admin: conteggi e quorum.
+  - `POST /api/report` — solo admin: elenco di dettaglio (solo i campi del report).
 - **ID_UNIQUE**: 8 caratteri `A–Z0–9` generati con RNG crittografico, con controllo di unicità sulla colonna M. Non derivato dal codice fiscale (evita dati personali e prevedibilità).
 - **Timestamp**: fuso Europe/Rome, salvato in colonna O.
 - **Corrispondenza persona**: confronto normalizzato (maiuscole/minuscole, spazi, accenti, formato data).
@@ -38,6 +42,20 @@ Web app (Vercel) raggiungibile inquadrando un QR code, per registrare la presenz
 - **Stack**: Next.js 15 (App Router, TypeScript) su Vercel, `google-auth-library` + Sheets REST API, Vitest. Colonne dati individuate per intestazione (Codice Socio, Cognome, Nome, Tipo, Adulto-Giovane, Data Nascita, Comune Nascita, Email); colonne di scrittura configurabili (`COL_PRESENZA`=L, `COL_ID`=M, `COL_TIMESTAMP`=O).
 - **Nota sul foglio esempio**: nel file di esempio la colonna M si chiama "Votante" ed è vuota, e non esistono N/O: il foglio reale deve avere M = ID_UNIQUE e O = timestamp (da confermare, vedi SETUP).
 - **Repository / destinazione**: `AlexgozWeb/PRJ_COLOGNO1_QR` — cartella locale `C:\CLAUDE\prj_Cologno1_QR`.
+
+## 3 bis. Area amministratore
+Inserendo `ADMIN_CODE` (variabile segreta, distinta da `ACCESS_CODE`) nella landing si apre la pagina **Statistiche Assemblea** invece del form. In modalità mock (`MOCK_SHEET=1`) il codice admin è `admin1`. Le API admin hanno rate limit e rispondono 401 senza codice valido.
+
+**Statistiche** (aggiornamento ogni 10 s):
+- Soci (esclusi i tutori) e soci aventi diritto al voto (colonna **P = Votante**, riconosce TRUE e SI).
+- Persone registrate (Soci + Tutori, contate per riga) e aventi diritto al voto registrati.
+- **Quorum**: 100% = aventi diritto al voto; raggiunto con 50% + 1 presenti. L'indicatore a semicerchio è rosso fino al 15%, giallo fino al 35%, giallo chiaro oltre, verde con la maggioranza.
+
+**Report Presenze** (pulsante "Report di dettaglio" nelle Statistiche, aggiornamento ogni 10 s):
+- Elenco delle persone con colonne Codice socio, Nome, Cognome, Data di nascita, Tipo, Presenza (✔ verde = presente, ✔ grigia = assente).
+- Ordine iniziale: codice socio, tipo, cognome, presenza (presenti prima).
+- Ordinamento per colonna con le frecce ▲ ▼ (secondo clic sulla stessa freccia = ordine iniziale); filtri a testo per colonna e menu Tutti/Presenti/Assenti per la presenza. Ordine e filtri sono mantenuti negli aggiornamenti.
+- Non mostra mai ID_UNIQUE, IP, email o altri dati personali. Pulsante "Torna alle statistiche" in alto a destra.
 
 ## 4. Struttura (proposta)
 ```
@@ -54,7 +72,17 @@ Web app (Vercel) raggiungibile inquadrando un QR code, per registrare la presenz
 - **Fase 1 — MVP**: flusso completo come sopra, ricevuta `.txt`.
 - **Fase 2 — Rifinitura**: grafica definitiva con logo, gestione già registrato, rate limiting, test end-to-end sul foglio reale.
 - **Fase 3 — Pubblicazione**: deploy Vercel, variabili d'ambiente, QR code definitivo, prova generale prima del 27/11/2026.
-- **Futuro (opzionale)**: pannello amministratore (conteggi presenze, ricerche), verifica quorum, ricevuta PDF, esportazione.
+- **Realizzato oltre l'MVP**: codice di accesso, consenso, registrazione di gruppo per i tutori, area amministratore con statistiche, quorum e Report Presenze (vedi cronologia).
+- **Futuro (opzionale)**: ricevuta PDF, esportazione dell'elenco, ricerche nel pannello admin.
+
+### Cronologia
+| Data | Modifica |
+|---|---|
+| 18/11/2026 | MVP registrazione presenze; USER_IP salvato in colonna N (mai mostrato) |
+| 18/11/2026 | Pulsante "Torna alla home" nelle schermate finali; codice di accesso nella landing (`ACCESS_CODE`); consenso al trattamento dati |
+| 18/11/2026 | Registrazione di gruppo per tutori (ragazzi e altri tutori) con spunte di stato |
+| 18/11/2026 | Pagina statistiche admin con grafico quorum; Votante riconosce anche SI; consenso semplificato; registrati contati per riga; etichette |
+| 19/11/2026 | Report Presenze: elenco di dettaglio con ordinamento e filtri; pulsante in alto a destra |
 
 ## 6. Questioni aperte
-Risolte: già registrato, tutore, privacy, QR solo in loco. Ancora aperte: grafica di riferimento (allegati 1 e 2); intestazioni definitive delle colonne L–O nel foglio reale; chiave di ricerca ammessa (oggi: nome + cognome + data + luogo, normalizzati).
+Risolte: già registrato, tutore, privacy, QR solo in loco, area amministratore. Ancora aperte: grafica di riferimento (allegati 1 e 2); intestazioni definitive delle colonne L–O nel foglio reale; chiave di ricerca ammessa (oggi: nome + cognome + data + luogo, normalizzati).

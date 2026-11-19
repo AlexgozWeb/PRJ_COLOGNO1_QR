@@ -22,6 +22,8 @@ Nel Google Sheet: **Condividi** → incolla la `client_email` del service accoun
 | `GOOGLE_SERVICE_ACCOUNT_EMAIL` | `client_email` |
 | `GOOGLE_PRIVATE_KEY` | `private_key` completa (con i `\n`) |
 | `ACCESS_CODE` | codice di accesso fisso chiesto nella landing (segreto) |
+| `ADMIN_CODE` | codice amministratore: apre Statistiche e Report Presenze (segreto; senza variabile l'area admin è sempre negata) |
+| `COL_VOTANTE` | opzionale: colonna "Votante" se l'intestazione non è trovata (default P) |
 | `SHEET_NAME`, `COL_PRESENZA`, `COL_ID`, `COL_IP`, `COL_TIMESTAMP` | opzionali (Presenze, L, M, N, O) |
 
 Per lo sviluppo locale copia `.env.example` in `.env.local` (ignorato da git).
@@ -32,6 +34,10 @@ npm install
 $env:MOCK_SHEET='1'; npm run dev   # dati fittizi, senza Google
 npm test
 ```
+Le variabili di `.env.local` sono lette solo all'avvio: dopo ogni modifica riavvia il server. Su Vercel le variabili valgono dal deploy successivo.
+
+Area admin in locale: in modalità mock il codice è `admin1`; senza mock vale `ADMIN_CODE` di `.env.local`. Da lì si aprono le Statistiche e il Report Presenze.
+
 Dati di prova nella modalità mock: Mario Rossi, 12/03/1975, Milano (tutore con 2 ragazzi); Giulia Bianchi, 15/01/1990, Cologno Monzese; Paolo Verdi, 30/11/1980, Monza (già registrato).
 
 ## 6. Deploy

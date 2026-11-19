@@ -84,3 +84,11 @@ dd { margin: 0; font-weight: 600; word-break: break-word; }
 .pres { text-align: center; color: #64748b; font-weight: 800; }
 .pres.on { color: #16a34a; }
 .empty { text-align: center; color: #94a3b8; padding: 16px; }
+.reportBar { width: 100%; max-width: 1000px; position: relative; display: flex; justify-content: center; align-items: center; min-height: 34px; }
+.reportBar .sub { max-width: none; text-align: center; }
+.reportBar .btnSmall { position: absolute; right: 0; top: 50%; transform: translateY(-50%); }
+@media (max-width: 720px) {
+  .reportBar { flex-direction: column; gap: 8px; }
+  .reportBar .btnSmall { position: static; transform: none; align-self: flex-end; }
+}
+.btn.btnSmall { padding: 6px 14px; font-size: .85rem; min-width: 0; }

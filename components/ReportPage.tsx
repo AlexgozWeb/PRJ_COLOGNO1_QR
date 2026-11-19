@@ -79,10 +79,13 @@ export default function ReportPage({ code, onBack }: { code: string; onBack: () 
 
   return (
     <main className="report">
-      <h1>Report presenze</h1>
-      <p className="sub">
-        {rows ? `${shown.length} di ${rows.length} persone` : ""} · aggiornato ogni 10 s{updated ? ` (ore ${updated})` : ""}
-      </p>
+      <h1>Report Presenze</h1>
+      <div className="reportBar">
+        <p className="sub">
+          {rows ? `${shown.length} di ${rows.length} persone` : ""} · aggiornato ogni 10 s{updated ? ` (ore ${updated})` : ""}
+        </p>
+        <button className="btn btnSmall" onClick={onBack}>Torna alle statistiche</button>
+      </div>
       {err && <p className="sub" style={{ color: "#fca5a5" }}>{err}</p>}
       {!rows && !err && <div className="spinner" role="status" aria-label="Caricamento" />}
       {rows && (
@@ -136,7 +139,6 @@ export default function ReportPage({ code, onBack }: { code: string; onBack: () 
           </table>
         </div>
       )}
-      <button className="btn" onClick={onBack}>Torna alle statistiche</button>
     </main>
   );
 }

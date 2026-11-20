@@ -1,22 +1,42 @@
 import { NextRequest, NextResponse } from "next/server";
-import { accessGranted, getStore, parseInput, rateLimited } from "@/lib/server";
-import { lookup, register } from "@/lib/service";
+import { accessGranted, adminGranted, getStore, parseInput, rateLimited } from "@/lib/server";
+import { lookup, register, type PersonInput } from "@/lib/service";
+import type { SheetStore } from "@/lib/types";
 
-export async function handle(req: NextRequest, fn: typeof lookup | typeof register) {
+export type PersonAction<T extends { status: string }> = (store: SheetStore, input: PersonInput, ip?: string) => Promise<T>;
+
+export async function parsePersonRequest(
+  req: NextRequest,
+  opts: { scope: string; max?: number; admin?: boolean },
+): Promise<{ ok: true; ip: string; input: PersonInput; body: Record<string, unknown> } | { ok: false; res: NextResponse }> {
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0].trim() || "unknown";
-  if (rateLimited(ip)) return NextResponse.json({ error: "Troppe richieste, riprova tra un minuto." }, { status: 429 });
-  let body: unknown;
-  try {
-    body = await req.json();
-  } catch {
-    return NextResponse.json({ error: "Richiesta non valida." }, { status: 400 });
+  if (rateLimited(`${opts.scope}:${ip}`, opts.max ?? 20)) {
+    return { ok: false, res: NextResponse.json({ error: "Troppe richieste, riprova tra un minuto." }, { status: 429 }) };
   }
-  const input = parseInput(body);
-  if (!accessGranted((body as { accessCode?: unknown } | null)?.accessCode))
-    return NextResponse.json({ error: "Codice di accesso non valido." }, { status: 401 });
-  if (!input) return NextResponse.json({ error: "Dati non validi." }, { status: 400 });
+  let raw: unknown;
   try {
-    const result = await fn(getStore(), input, ip);
+    raw = await req.json();
+  } catch {
+    return { ok: false, res: NextResponse.json({ error: "Richiesta non valida." }, { status: 400 }) };
+  }
+  const body = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
+  const granted = opts.admin ? adminGranted(body.accessCode) : accessGranted(body.accessCode);
+  if (!granted) {
+    return {
+      ok: false,
+      res: NextResponse.json({ error: opts.admin ? "Non autorizzato." : "Codice di accesso non valido." }, { status: 401 }),
+    };
+  }
+  const input = parseInput(raw);
+  if (!input) return { ok: false, res: NextResponse.json({ error: "Dati non validi." }, { status: 400 }) };
+  return { ok: true, ip, input, body };
+}
+
+export async function handle(req: NextRequest, fn: typeof lookup | typeof register, admin = false, scope = "public") {
+  const parsed = await parsePersonRequest(req, { scope, max: admin ? 30 : 20, admin });
+  if (!parsed.ok) return parsed.res;
+  try {
+    const result = await fn(getStore(), parsed.input, parsed.ip);
     if (result.status === "closed") {
       return NextResponse.json(
         { status: "closed", error: "Le registrazioni per l'Assemblea sono chiuse." },

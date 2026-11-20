@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { APP_VERSION } from "../lib/version";
 
 type Stats = {
   soci: number;
@@ -88,6 +89,7 @@ export default function StatsPage({ code, onExit, onReport }: { code: string; on
   const quorum = s ? Math.floor(s.votantiTotali / 2) + 1 : 0;
   return (
     <main className="screen stats">
+      <span className="versionBadge" title="Versione app">{APP_VERSION}</span>
       <h1>Statistiche Assemblea</h1>
       {s && (
         <span className={`statusPill ${s.registrationsClosed ? "closed" : "open"}`}>

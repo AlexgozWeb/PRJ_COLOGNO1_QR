@@ -40,6 +40,7 @@ describe("service", () => {
     expect(r.status).toBe("found");
     if (r.status === "found") {
       expect(r.kids.map((k) => k.nome).sort()).toEqual(["Anna", "Luca"]);
+      expect(r.adultKids).toEqual([]);
       expect(r.coTutors.map((k) => k.nome)).toEqual(["Sara"]);
     }
     const reg = await register(store, mario, "203.0.113.7");
@@ -178,6 +179,42 @@ describe("service", () => {
     const lk = await lookup(store, marco);
     expect(lk.status).toBe("minor");
     if (lk.status === "minor") expect(lk.tutors).toEqual([]);
+  });
+  it("tutore con figlio maggiorenne e minorenne: mostra e registra solo il minorenne", async () => {
+    const baseRow = { luogoNascita: "Monza", email: "", presente: false, votante: false, id: "", timestamp: "" };
+    const rows = [
+      { ...baseRow, rowNumber: 2, codiceSocio: "50", cognome: "Galli", nome: "Elena", tipo: "Tutore", adultoGiovane: "", dataNascita: "1974-01-10" },
+      { ...baseRow, rowNumber: 3, codiceSocio: "50", cognome: "Galli", nome: "Diego", tipo: "Socio", adultoGiovane: "Giovane", dataNascita: "2013-05-10" },
+      { ...baseRow, rowNumber: 4, codiceSocio: "51", cognome: "Galli", nome: "Elena", tipo: "Tutore", adultoGiovane: "", dataNascita: "1974-01-10" },
+      { ...baseRow, rowNumber: 5, codiceSocio: "51", cognome: "Galli", nome: "Matteo", tipo: "Socio", adultoGiovane: "Giovane", dataNascita: "2007-04-10" },
+    ];
+    const store = new MockSheetStore(rows);
+    const elena = { nome: "Elena", cognome: "Galli", dataNascita: "10/01/1974", luogoNascita: "Monza" };
+    const lk = await lookup(store, elena);
+    expect(lk.status).toBe("found");
+    if (lk.status === "found") {
+      expect(lk.kids.map((k) => k.nome)).toEqual(["Diego"]);
+      expect(lk.adultKids).toEqual([
+        { nome: "Matteo", cognome: "Galli", dataNascita: "10/04/2007", registered: false },
+      ]);
+    }
+    const reg = await register(store, elena, "203.0.113.20");
+    expect(reg.status).toBe("ok");
+    if (reg.status === "ok") {
+      expect(reg.kids.map((k) => k.nome)).toEqual(["Diego"]);
+    }
+    const after = await store.getRows();
+    expect(after.find((r) => r.nome === "Diego")?.presente).toBe(true);
+    const matteoRow = after.find((r) => r.nome === "Matteo");
+    expect(matteoRow?.presente).toBe(false);
+    expect(matteoRow?.id).toBe("");
+
+    const matteo = { nome: "Matteo", cognome: "Galli", dataNascita: "10/04/2007", luogoNascita: "Monza" };
+    const regMatteo = await register(store, matteo, "203.0.113.21");
+    expect(regMatteo.status).toBe("ok");
+    if (regMatteo.status === "ok" && reg.status === "ok") {
+      expect(regMatteo.id).not.toBe(reg.id);
+    }
   });
 });
 

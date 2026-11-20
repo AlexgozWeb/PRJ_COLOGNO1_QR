@@ -131,17 +131,26 @@ export class GoogleSheetStore implements SheetStore {
     }));
   }
 
-  async writeRegistration(reg: Registration): Promise<void> {
-    const data = reg.rowNumbers.flatMap((n) => [
-      { range: `'${this.sheet}'!${this.colL}${n}`, values: [[true]] },
-      { range: `'${this.sheet}'!${this.colM}${n}`, values: [[reg.id]] },
-      { range: `'${this.sheet}'!${this.colN}${n}`, values: [[reg.ip]] },
-      { range: `'${this.sheet}'!${this.colO}${n}`, values: [[reg.timestamp]] },
+  private async updateRows(rowNumbers: number[], l: boolean, m: string, n: string, o: string): Promise<void> {
+    if (!rowNumbers.length) return;
+    const data = rowNumbers.flatMap((row) => [
+      { range: `'${this.sheet}'!${this.colL}${row}`, values: [[l]] },
+      { range: `'${this.sheet}'!${this.colM}${row}`, values: [[m]] },
+      { range: `'${this.sheet}'!${this.colN}${row}`, values: [[n]] },
+      { range: `'${this.sheet}'!${this.colO}${row}`, values: [[o]] },
     ]);
     await this.api(`/values:batchUpdate`, {
       method: "POST",
       body: JSON.stringify({ valueInputOption: "RAW", data }),
     });
+  }
+
+  async writeRegistration(reg: Registration): Promise<void> {
+    await this.updateRows(reg.rowNumbers, true, reg.id, reg.ip, reg.timestamp);
+  }
+
+  async clearRegistration(rowNumbers: number[]): Promise<void> {
+    await this.updateRows(rowNumbers, false, "", "", "");
   }
 
   async getRegistrationsClosed(): Promise<boolean> {

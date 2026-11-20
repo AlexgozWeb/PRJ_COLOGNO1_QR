@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { downloadReceipt } from "@/lib/receipt";
 import RegistrationForm, { type Person } from "./RegistrationForm";
 import StatsPage from "./StatsPage";
 import ReportPage from "./ReportPage";
@@ -16,7 +17,7 @@ type Step =
   | { s: "form" }
   | { s: "notfound" }
   | { s: "minor"; person: View; tutors: MinorTutor[] }
-  | { s: "summary"; person: View; kids: Kid[]; coTutors: Kid[] }
+  | { s: "summary"; person: View; kids: Kid[]; adultKids: Kid[]; coTutors: Kid[] }
   | { s: "already"; person: View; timestamp: string }
   | { s: "done"; person: View; id: string; timestamp: string; kids: Kid[] }
   | { s: "closed" }
@@ -28,30 +29,6 @@ async function post(path: string, body: Person & { accessCode?: string }) {
   if (res.status === 403 && (data.status === "closed" || data.status === "minor")) return data;
   if (!res.ok) throw new Error(data.error || "Errore di rete");
   return data;
-}
-
-function downloadReceipt(p: View, id: string, ts: string, kids: Kid[]) {
-  const list = (title: string, l: Kid[]) =>
-    l.length ? ["", title, ...l.map((k) => `- ${k.cognome} ${k.nome} (${k.dataNascita})`)] : [];
-  const text = [
-    "Assemblea dei Soci 27/11/2026 - Gruppo Scout Cologno Monzese 1",
-    "RICEVUTA DI REGISTRAZIONE PRESENZA",
-    "",
-    `Cognome: ${p.cognome}`,
-    `Nome: ${p.nome}`,
-    `Data di nascita: ${p.dataNascita}`,
-    `Luogo di nascita: ${p.luogoNascita}`,
-    `ID_UNIQUE: ${id}`,
-    `Registrato il: ${ts}`,
-    ...list("Registrati insieme a te (ragazzi):", kids),
-    "",
-  ].join("\r\n");
-  const url = URL.createObjectURL(new Blob([text], { type: "text/plain;charset=utf-8" }));
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `registrazione-assemblea-${id}.txt`;
-  a.click();
-  URL.revokeObjectURL(url);
 }
 
 export default function App() {
@@ -98,7 +75,7 @@ export default function App() {
       else if (r.status === "not_found") setStep({ s: "notfound" });
       else if (r.status === "already") setStep({ s: "already", person: r.person, timestamp: r.timestamp });
       else if (r.status === "minor") setStep({ s: "minor", person: r.person, tutors: r.tutors ?? [] });
-      else setStep({ s: "summary", person: r.person, kids: r.kids, coTutors: r.coTutors });
+      else setStep({ s: "summary", person: r.person, kids: r.kids ?? [], adultKids: r.adultKids ?? [], coTutors: r.coTutors ?? [] });
     } catch (e) {
       setStep({ s: "ko", message: (e as Error).message });
     } finally {
@@ -232,8 +209,14 @@ export default function App() {
           <PersonData p={step.person} />
           {step.kids.length > 0 && (
             <div className="kids">
-              <strong>Ragazzi seguiti</strong>
+              <strong>Ragazzi minorenni seguiti</strong>
               <ul className="checks kidsList">{step.kids.map((k, i) => <li key={i}><Check on={k.registered} />{k.nome} {k.cognome} — {k.dataNascita}</li>)}</ul>
+            </div>
+          )}
+          {step.adultKids.length > 0 && (
+            <div className="kids mutedInfo">
+              <strong>Ragazzi maggiorenni seguiti <span className="infoTag">(solo informativo)</span></strong>
+              <ul className="checks">{step.adultKids.map((k, i) => <li key={i}><Check on={k.registered} />{k.nome} {k.cognome} — {k.dataNascita}</li>)}</ul>
             </div>
           )}
           {step.coTutors.length > 0 && (
@@ -242,14 +225,14 @@ export default function App() {
               <ul className="checks">{step.coTutors.map((k, i) => <li key={i}><Check on={k.registered} />{k.nome} {k.cognome} — {k.dataNascita}</li>)}</ul>
             </div>
           )}
-          {(step.kids.length > 0 || step.coTutors.length > 0) && (
+          {(step.kids.length > 0 || step.adultKids.length > 0 || step.coTutors.length > 0) && (
             <>
               <p className="note">
                 <Check on /> già registrato &nbsp; <Check on={false} /> non ancora registrato.
               </p>
               <hr className="divider" />
               <p className="note">
-                <strong><em>ATTENZIONE:</em></strong> La registrazione varrà anche per eventuali ragazzi seguiti non ancora registrati, ma non sugli altri tutori.
+                <strong><em>ATTENZIONE:</em></strong> La registrazione varrà anche per eventuali ragazzi minorenni seguiti non ancora registrati, ma non sui maggiorenni né sugli altri tutori.
               </p>
             </>
           )}
@@ -258,7 +241,7 @@ export default function App() {
             <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} />
             <span>
               Acconsento a comunicare i miei dati al Gruppo Scout Cologno Monzese 1 esclusivamente per la gestione delle presenze
-              all&apos;Assemblea dei Soci del 27/11/2026. Se sono tutore, la registrazione vale anche per eventuali ragazzi seguiti non ancora registrati.
+              all&apos;Assemblea dei Soci del 27/11/2026. Se sono tutore, la registrazione vale anche per eventuali ragazzi minorenni seguiti non ancora registrati.
             </span>
           </label>
           <div className="actions">

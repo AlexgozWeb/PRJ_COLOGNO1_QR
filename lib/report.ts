@@ -16,8 +16,11 @@ function fmtDate(iso: string | null): string {
 }
 
 /** Solo i campi del report di dettaglio (nessun ID, IP, email, ecc.). */
-export async function getReport(store: SheetStore): Promise<{ rows: ReportRow[]; aggiornato: string }> {
-  const rows = (await store.getRows()).map((r) => ({
+export async function getReport(
+  store: SheetStore,
+): Promise<{ rows: ReportRow[]; aggiornato: string; registrationsClosed: boolean }> {
+  const [sheetRows, registrationsClosed] = await Promise.all([store.getRows(), store.getRegistrationsClosed()]);
+  const rows = sheetRows.map((r) => ({
     codiceSocio: r.codiceSocio,
     nome: r.nome,
     cognome: r.cognome,
@@ -26,5 +29,5 @@ export async function getReport(store: SheetStore): Promise<{ rows: ReportRow[];
     tipo: r.tipo,
     presente: r.presente,
   }));
-  return { rows, aggiornato: new Date().toISOString() };
+  return { rows, aggiornato: new Date().toISOString(), registrationsClosed };
 }

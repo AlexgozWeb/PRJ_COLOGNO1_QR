@@ -23,6 +23,10 @@ export class MockSheetStore implements SheetStore {
     for (const r of this.rows)
       if (reg.rowNumbers.includes(r.rowNumber)) Object.assign(r, { presente: true, id: reg.id, ip: reg.ip, timestamp: reg.timestamp });
   }
+  async clearRegistration(rowNumbers: number[]) {
+    for (const r of this.rows)
+      if (rowNumbers.includes(r.rowNumber)) Object.assign(r, { presente: false, id: "", ip: "", timestamp: "" });
+  }
   async getRegistrationsClosed() {
     return this.closed;
   }

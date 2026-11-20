@@ -33,6 +33,10 @@ describe("report", () => {
     expect(serialized).not.toContain("203.0.113.9");
     expect(serialized).not.toContain("mario.rossi@example.com");
     expect(serialized).not.toContain("giulia.bianchi@example.com");
+    expect(report.registrationsClosed).toBe(false);
+
+    await store.setRegistrationsClosed(true);
+    expect((await getReport(store)).registrationsClosed).toBe(true);
   });
 });
 

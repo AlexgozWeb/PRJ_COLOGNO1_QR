@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-type Row = { codiceSocio: string; nome: string; cognome: string; dataNascita: string; tipo: string; presente: boolean };
+type Row = { codiceSocio: string; nome: string; cognome: string; dataNascita: string; luogoNascita: string; tipo: string; presente: boolean };
 type Key = keyof Row;
 type Sort = { key: Key; dir: 1 | -1 };
 
@@ -11,7 +11,8 @@ const COLS: { key: Key; label: string }[] = [
   { key: "nome", label: "Nome" },
   { key: "cognome", label: "Cognome" },
   { key: "dataNascita", label: "Data di nascita" },
-  { key: "tipo", label: "Tipo" },
+  { key: "luogoNascita", label: "Comune di nascita" },
+  { key: "tipo", label: "Titolo" },
   { key: "presente", label: "Presenza" },
 ];
 
@@ -128,6 +129,7 @@ export default function ReportPage({ code, onBack }: { code: string; onBack: () 
                   <td>{r.nome}</td>
                   <td>{r.cognome}</td>
                   <td>{r.dataNascita}</td>
+                  <td>{r.luogoNascita}</td>
                   <td>{r.tipo}</td>
                   <td className={r.presente ? "pres on" : "pres"} aria-label={r.presente ? "Presente" : "Assente"}>✔</td>
                 </tr>

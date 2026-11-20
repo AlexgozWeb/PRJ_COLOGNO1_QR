@@ -16,7 +16,20 @@ export async function handle(req: NextRequest, fn: typeof lookup | typeof regist
     return NextResponse.json({ error: "Codice di accesso non valido." }, { status: 401 });
   if (!input) return NextResponse.json({ error: "Dati non validi." }, { status: 400 });
   try {
-    return NextResponse.json(await fn(getStore(), input, ip), { headers: { "Cache-Control": "no-store" } });
+    const result = await fn(getStore(), input, ip);
+    if (result.status === "closed") {
+      return NextResponse.json(
+        { status: "closed", error: "Le registrazioni per l'Assemblea sono chiuse." },
+        { status: 403, headers: { "Cache-Control": "no-store" } },
+      );
+    }
+    if (fn === register && result.status === "minor") {
+      return NextResponse.json(
+        { ...result, error: "Socio minorenne: impossibile registrarsi autonomamente." },
+        { status: 403, headers: { "Cache-Control": "no-store" } },
+      );
+    }
+    return NextResponse.json(result, { headers: { "Cache-Control": "no-store" } });
   } catch (e) {
     console.error(e instanceof Error ? e.message : "errore");
     return NextResponse.json({ error: "Servizio temporaneamente non disponibile." }, { status: 500 });

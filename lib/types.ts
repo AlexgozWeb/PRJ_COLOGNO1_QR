@@ -25,4 +25,6 @@ export interface Registration {
 export interface SheetStore {
   getRows(): Promise<SheetRow[]>;
   writeRegistration(r: Registration): Promise<void>;
+  getRegistrationsClosed(): Promise<boolean>;
+  setRegistrationsClosed(closed: boolean): Promise<void>;
 }

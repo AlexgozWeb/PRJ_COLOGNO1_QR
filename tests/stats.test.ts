@@ -1,6 +1,6 @@
 ﻿import { describe, expect, it } from "vitest";
-import { fakeRows } from "../lib/mock";
-import { computeStats } from "../lib/stats";
+import { fakeRows, MockSheetStore } from "../lib/mock";
+import { computeStats, getStats } from "../lib/stats";
 import { quorumColor } from "../components/StatsPage";
 
 describe("statistiche", () => {
@@ -19,5 +19,11 @@ describe("statistiche", () => {
     expect(quorumColor(40, 100)).toBe("#fde68a");
     expect(quorumColor(50, 100)).toBe("#fde68a");
     expect(quorumColor(51, 100)).toBe("#16a34a");
+  });
+  it("getStats include lo stato registrationsClosed", async () => {
+    const store = new MockSheetStore();
+    expect((await getStats(store)).registrationsClosed).toBe(false);
+    await store.setRegistrationsClosed(true);
+    expect((await getStats(store)).registrationsClosed).toBe(true);
   });
 });

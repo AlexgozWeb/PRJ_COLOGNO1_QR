@@ -1,8 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
-type Stats = { soci: number; sociVotanti: number; registrati: number; votantiTotali: number; votantiRegistrati: number; aggiornato: string };
+type Stats = {
+  soci: number;
+  sociVotanti: number;
+  registrati: number;
+  votantiTotali: number;
+  votantiRegistrati: number;
+  aggiornato: string;
+  registrationsClosed: boolean;
+};
 
 /** Colore in base alla % di aventi diritto presenti; verde solo con maggioranza (> 50%). */
 export function quorumColor(reg: number, tot: number): string {
@@ -33,17 +41,21 @@ function Gauge({ reg, tot }: { reg: number; tot: number }) {
 export default function StatsPage({ code, onExit, onReport }: { code: string; onExit: () => void; onReport: () => void }) {
   const [s, setS] = useState<Stats | null>(null);
   const [err, setErr] = useState("");
+  const [confirmToggle, setConfirmToggle] = useState(false);
+  const [toggling, setToggling] = useState(false);
+  const seq = useRef(0);
 
   useEffect(() => {
     let stop = false;
     async function load() {
+      const mySeq = seq.current;
       try {
         const res = await fetch("/api/stats", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ accessCode: code }) });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(data.error || "Errore");
-        if (!stop) { setS(data); setErr(""); }
+        if (!stop && mySeq === seq.current) { setS(data); setErr(""); }
       } catch (e) {
-        if (!stop) setErr((e as Error).message);
+        if (!stop && mySeq === seq.current) setErr((e as Error).message);
       }
     }
     load();
@@ -51,10 +63,37 @@ export default function StatsPage({ code, onExit, onReport }: { code: string; on
     return () => { stop = true; clearInterval(t); };
   }, [code]);
 
+  async function onToggle() {
+    if (!s) return;
+    seq.current += 1;
+    setToggling(true);
+    setErr("");
+    try {
+      const res = await fetch("/api/config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ accessCode: code, registrationsClosed: !s.registrationsClosed }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Errore");
+      setS((prev) => (prev ? { ...prev, registrationsClosed: data.registrationsClosed } : prev));
+      setConfirmToggle(false);
+    } catch (e) {
+      setErr((e as Error).message);
+    } finally {
+      setToggling(false);
+    }
+  }
+
   const quorum = s ? Math.floor(s.votantiTotali / 2) + 1 : 0;
   return (
     <main className="screen stats">
       <h1>Statistiche Assemblea</h1>
+      {s && (
+        <span className={`statusPill ${s.registrationsClosed ? "closed" : "open"}`}>
+          {s.registrationsClosed ? "Registrazioni CHIUSE" : "Registrazioni APERTE"}
+        </span>
+      )}
       {err && <p className="sub" style={{ color: "#fca5a5" }}>{err}</p>}
       {!s && !err && <div className="spinner" role="status" aria-label="Caricamento" />}
       {s && (
@@ -70,8 +109,36 @@ export default function StatsPage({ code, onExit, onReport }: { code: string; on
           <p className="sub">Quorum raggiunto con {quorum} presenti (50% + 1) · aggiornato ogni 10 s</p>
         </>
       )}
-      <button className="btn" onClick={onReport}>Report di dettaglio</button>
-      <button className="btn" onClick={onExit}>Esci</button>
+      {s && confirmToggle && (
+        <div className="confirmBox">
+          <p>
+            {s.registrationsClosed
+              ? "Confermi di voler riaprire le registrazioni per i soci?"
+              : "Confermi di voler chiudere le registrazioni? I soci non potranno più registrarsi."}
+          </p>
+          <div className="confirmActions">
+            <button className={`btn btnSmall ${s.registrationsClosed ? "okBtn" : "danger"}`} disabled={toggling} onClick={onToggle}>
+              {toggling ? "Salvataggio…" : "Conferma"}
+            </button>
+            <button className="btn btnSmall cancel" disabled={toggling} onClick={() => setConfirmToggle(false)}>
+              Annulla
+            </button>
+          </div>
+        </div>
+      )}
+      <div className="statsActions">
+        {s && (
+          <button
+            className={`btn btnSmall ${s.registrationsClosed ? "okBtn" : "danger"}`}
+            disabled={toggling || confirmToggle}
+            onClick={() => setConfirmToggle(true)}
+          >
+            {s.registrationsClosed ? "Riapri registrazioni" : "Chiudi registrazioni"}
+          </button>
+        )}
+        <button className="btn btnSmall" onClick={onReport}>Report di dettaglio</button>
+        <button className="btn btnSmall" onClick={onExit}>Esci</button>
+      </div>
     </main>
   );
 }

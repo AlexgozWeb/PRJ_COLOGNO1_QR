@@ -32,6 +32,11 @@ export function computeStats(rows: SheetRow[]): Stats {
   };
 }
 
-export async function getStats(store: SheetStore): Promise<Stats> {
-  return computeStats(await store.getRows());
+export interface AdminStats extends Stats {
+  registrationsClosed: boolean;
+}
+
+export async function getStats(store: SheetStore): Promise<AdminStats> {
+  const [rows, registrationsClosed] = await Promise.all([store.getRows(), store.getRegistrationsClosed()]);
+  return { ...computeStats(rows), registrationsClosed };
 }

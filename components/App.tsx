@@ -6,6 +6,7 @@ import StatsPage from "./StatsPage";
 import ReportPage from "./ReportPage";
 
 type Kid = { nome: string; cognome: string; dataNascita: string; registered: boolean };
+type MinorTutor = { nome: string; cognome: string; dataNascita: string; luogoNascita: string; registered: boolean };
 type View = { nome: string; cognome: string; dataNascita: string; luogoNascita: string; email: string };
 type Step =
   | { s: "loading" }
@@ -14,19 +15,22 @@ type Step =
   | { s: "report" }
   | { s: "form" }
   | { s: "notfound" }
+  | { s: "minor"; person: View; tutors: MinorTutor[] }
   | { s: "summary"; person: View; kids: Kid[]; coTutors: Kid[] }
   | { s: "already"; person: View; timestamp: string }
-  | { s: "done"; person: View; id: string; timestamp: string; kids: Kid[]; coTutors: Kid[] }
+  | { s: "done"; person: View; id: string; timestamp: string; kids: Kid[] }
+  | { s: "closed" }
   | { s: "ko"; message: string };
 
 async function post(path: string, body: Person & { accessCode?: string }) {
   const res = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
   const data = await res.json().catch(() => ({}));
+  if (res.status === 403 && (data.status === "closed" || data.status === "minor")) return data;
   if (!res.ok) throw new Error(data.error || "Errore di rete");
   return data;
 }
 
-function downloadReceipt(p: View, id: string, ts: string, kids: Kid[], coTutors: Kid[]) {
+function downloadReceipt(p: View, id: string, ts: string, kids: Kid[]) {
   const list = (title: string, l: Kid[]) =>
     l.length ? ["", title, ...l.map((k) => `- ${k.cognome} ${k.nome} (${k.dataNascita})`)] : [];
   const text = [
@@ -40,7 +44,6 @@ function downloadReceipt(p: View, id: string, ts: string, kids: Kid[], coTutors:
     `ID_UNIQUE: ${id}`,
     `Registrato il: ${ts}`,
     ...list("Registrati insieme a te (ragazzi):", kids),
-    ...list("Registrati insieme a te (altri tutori):", coTutors),
     "",
   ].join("\r\n");
   const url = URL.createObjectURL(new Blob([text], { type: "text/plain;charset=utf-8" }));
@@ -65,11 +68,14 @@ export default function App() {
     setCodeErr("");
     try {
       const res = await fetch("/api/access", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ accessCode: code }) });
+      const d = await res.json().catch(() => ({}));
       if (res.ok) {
-        const d = await res.json().catch(() => ({}));
         setStep(d.admin ? { s: "stats" } : { s: "form" });
+      } else if (res.status === 403 && d.status === "closed") {
+        setStep({ s: "closed" });
+      } else {
+        setCodeErr(d.error || "Codice errato.");
       }
-      else setCodeErr((await res.json().catch(() => ({}))).error || "Codice errato.");
     } catch {
       setCodeErr("Errore di rete, riprova.");
     } finally {
@@ -88,8 +94,10 @@ export default function App() {
       setInput(p);
       setConsent(false);
       const r = await post("/api/lookup", { ...p, accessCode: code });
-      if (r.status === "not_found") setStep({ s: "notfound" });
+      if (r.status === "closed") setStep({ s: "closed" });
+      else if (r.status === "not_found") setStep({ s: "notfound" });
       else if (r.status === "already") setStep({ s: "already", person: r.person, timestamp: r.timestamp });
+      else if (r.status === "minor") setStep({ s: "minor", person: r.person, tutors: r.tutors ?? [] });
       else setStep({ s: "summary", person: r.person, kids: r.kids, coTutors: r.coTutors });
     } catch (e) {
       setStep({ s: "ko", message: (e as Error).message });
@@ -98,12 +106,23 @@ export default function App() {
     }
   }
 
+  async function onSelectTutor(t: MinorTutor) {
+    if (t.nome && t.cognome && t.dataNascita && t.luogoNascita) {
+      await onSubmit({ nome: t.nome, cognome: t.cognome, dataNascita: t.dataNascita, luogoNascita: t.luogoNascita });
+    } else {
+      setInput({ nome: t.nome, cognome: t.cognome, dataNascita: t.dataNascita, luogoNascita: t.luogoNascita });
+      setStep({ s: "form" });
+    }
+  }
+
   async function onRegister() {
     if (!input) return;
     setBusy(true);
     try {
       const r = await post("/api/register", { ...input, accessCode: code });
-      if (r.status === "ok") setStep({ s: "done", person: r.person, id: r.id, timestamp: r.timestamp, kids: r.kids, coTutors: r.coTutors });
+      if (r.status === "closed") setStep({ s: "closed" });
+      else if (r.status === "minor") setStep({ s: "minor", person: r.person, tutors: r.tutors ?? [] });
+      else if (r.status === "ok") setStep({ s: "done", person: r.person, id: r.id, timestamp: r.timestamp, kids: r.kids ?? [] });
       else if (r.status === "already") setStep({ s: "already", person: r.person, timestamp: r.timestamp });
       else setStep({ s: "notfound" });
     } catch (e) {
@@ -163,33 +182,83 @@ export default function App() {
         </div></div>
       )}
 
+      {step.s === "minor" && (
+        <div className="overlay"><div className="card summaryCard">
+          <h2>Riepilogo</h2>
+          <PersonData p={step.person} />
+          <p className="msg-err minorWarn">Socio minorenne: impossibile registrarsi autonomamente.</p>
+          {step.tutors.length > 0 ? (
+            <>
+              <div className="kids">
+                <strong>Sei un tutore di {step.person.nome} {step.person.cognome}?</strong>
+                <ul className="checks tutorList">
+                  {step.tutors.map((t, i) => (
+                    <li key={i} className="tutorRow">
+                      <span className="tutorInfo">
+                        <Check on={t.registered} />
+                        <span>{t.nome} {t.cognome}{t.dataNascita ? ` — ${t.dataNascita}` : ""}</span>
+                      </span>
+                      {!t.registered && (
+                        <button type="button" className="linkBtn" disabled={busy} onClick={() => onSelectTutor(t)}>
+                          Registrati <span aria-hidden="true">→</span>
+                        </button>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <p className="note">
+                <Check on /> già registrato &nbsp; <Check on={false} /> non ancora registrato.
+              </p>
+              <div className="actions">
+                <button className="btn secondary" disabled={busy} onClick={() => setStep({ s: "form" })}>Indietro</button>
+                <button className="btn" disabled={busy} onClick={goHome}>Esci</button>
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="note">Nessun tutore associato risulta in elenco. Contatta l&apos;amministratore.</p>
+              <div className="actions">
+                <button className="btn" disabled={busy} onClick={goHome}>Esci</button>
+              </div>
+            </>
+          )}
+        </div></div>
+      )}
+
       {step.s === "summary" && (
-        <div className="overlay"><div className="card">
+        <div className="overlay"><div className="card summaryCard">
           <h2>Riepilogo</h2>
           <PersonData p={step.person} />
           {step.kids.length > 0 && (
             <div className="kids">
               <strong>Ragazzi seguiti</strong>
-              <ul className="checks">{step.kids.map((k, i) => <li key={i}><Check on={k.registered} />{k.nome} {k.cognome} — {k.dataNascita}</li>)}</ul>
+              <ul className="checks kidsList">{step.kids.map((k, i) => <li key={i}><Check on={k.registered} />{k.nome} {k.cognome} — {k.dataNascita}</li>)}</ul>
             </div>
           )}
           {step.coTutors.length > 0 && (
-            <div className="kids">
-              <strong>Altri tutori</strong>
+            <div className="kids mutedInfo">
+              <strong>Altri tutori <span className="infoTag">(solo informativo)</span></strong>
               <ul className="checks">{step.coTutors.map((k, i) => <li key={i}><Check on={k.registered} />{k.nome} {k.cognome} — {k.dataNascita}</li>)}</ul>
             </div>
           )}
           {(step.kids.length > 0 || step.coTutors.length > 0) && (
-            <p className="note">
-              <Check on /> già registrato &nbsp; <Check on={false} /> non ancora registrato.<br />
-              La registrazione varrà anche per le persone elencate qui sopra.
-            </p>
+            <>
+              <p className="note">
+                <Check on /> già registrato &nbsp; <Check on={false} /> non ancora registrato.
+              </p>
+              <hr className="divider" />
+              <p className="note">
+                <strong><em>ATTENZIONE:</em></strong> La registrazione varrà anche per eventuali ragazzi seguiti non ancora registrati, ma non sugli altri tutori.
+              </p>
+            </>
           )}
+          <hr className="divider" />
           <label className="consent">
             <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} />
             <span>
               Acconsento a comunicare i miei dati al Gruppo Scout Cologno Monzese 1 esclusivamente per la gestione delle presenze
-              all'Assemblea dei Soci del 27/11/2026. Se sono tutore, la registrazione vale anche per i ragazzi e gli altri tutori elencati.
+              all&apos;Assemblea dei Soci del 27/11/2026. Se sono tutore, la registrazione vale anche per eventuali ragazzi seguiti non ancora registrati.
             </span>
           </label>
           <div className="actions">
@@ -216,13 +285,23 @@ export default function App() {
           <p>{step.person.nome} {step.person.cognome}</p>
           <div className="idbox">{step.id}</div>
           <p>Registrato il {step.timestamp}</p>
-          {(step.kids.length > 0 || step.coTutors.length > 0) && (
-            <p className="note">Presenza registrata anche per: {[...step.kids, ...step.coTutors].map((k) => `${k.nome} ${k.cognome}`).join(", ")}.</p>
+          {step.kids.length > 0 && (
+            <p className="note">Presenza registrata anche per: {step.kids.map((k) => `${k.nome} ${k.cognome}`).join(", ")}.</p>
           )}
           <div className="actions">
-            <button className="btn" onClick={() => downloadReceipt(step.person, step.id, step.timestamp, step.kids, step.coTutors)}>Salva ricevuta (.txt)</button>
+            <button className="btn" onClick={() => downloadReceipt(step.person, step.id, step.timestamp, step.kids)}>Salva ricevuta (.txt)</button>
             <button className="btn secondary" onClick={goHome}>Torna alla home</button>
           </div>
+        </div></div>
+      )}
+
+      {step.s === "closed" && (
+        <div className="overlay"><div className="card center">
+          <div className="badge ko">!</div>
+          <h2>Registrazioni chiuse</h2>
+          <p>Le registrazioni per l&apos;Assemblea dei Soci sono attualmente chiuse.</p>
+          <p className="note">Per assistenza contatta l&apos;amministratore.</p>
+          <div className="actions"><button className="btn" onClick={goHome}>Torna alla home</button></div>
         </div></div>
       )}
 

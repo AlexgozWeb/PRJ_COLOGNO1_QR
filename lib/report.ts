@@ -5,6 +5,7 @@ export interface ReportRow {
   nome: string;
   cognome: string;
   dataNascita: string; // GG/MM/AAAA
+  luogoNascita: string;
   tipo: string;
   presente: boolean;
 }
@@ -21,6 +22,7 @@ export async function getReport(store: SheetStore): Promise<{ rows: ReportRow[];
     nome: r.nome,
     cognome: r.cognome,
     dataNascita: fmtDate(r.dataNascita),
+    luogoNascita: r.luogoNascita,
     tipo: r.tipo,
     presente: r.presente,
   }));

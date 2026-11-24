@@ -39,7 +39,17 @@ function Gauge({ reg, tot }: { reg: number; tot: number }) {
   );
 }
 
-export default function StatsPage({ code, onExit, onReport }: { code: string; onExit: () => void; onReport: () => void }) {
+export default function StatsPage({
+  code,
+  onExit,
+  onReport,
+  onAssociates,
+}: {
+  code: string;
+  onExit: () => void;
+  onReport: () => void;
+  onAssociates: () => void;
+}) {
   const [s, setS] = useState<Stats | null>(null);
   const [err, setErr] = useState("");
   const [confirmToggle, setConfirmToggle] = useState(false);
@@ -129,17 +139,22 @@ export default function StatsPage({ code, onExit, onReport }: { code: string; on
         </div>
       )}
       <div className="statsActions">
-        {s && (
-          <button
-            className={`btn btnSmall ${s.registrationsClosed ? "okBtn" : "danger"}`}
-            disabled={toggling || confirmToggle}
-            onClick={() => setConfirmToggle(true)}
-          >
-            {s.registrationsClosed ? "Riapri registrazioni" : "Chiudi registrazioni"}
-          </button>
-        )}
-        <button className="btn btnSmall" onClick={onReport}>Report di dettaglio</button>
-        <button className="btn btnSmall" onClick={onExit}>Esci</button>
+        <div className="statsActionRow">
+          <button className="btn btnSmall okBtn" onClick={onAssociates}>Gestisci Associati</button>
+          <button className="btn btnSmall" onClick={onReport}>Report di dettaglio</button>
+        </div>
+        <div className="statsActionRow">
+          {s && (
+            <button
+              className={`btn btnSmall ${s.registrationsClosed ? "okBtn" : "danger"}`}
+              disabled={toggling || confirmToggle}
+              onClick={() => setConfirmToggle(true)}
+            >
+              {s.registrationsClosed ? "Riapri registrazioni" : "Chiudi registrazioni"}
+            </button>
+          )}
+          <button className="btn btnSmall danger" onClick={onExit}>Esci</button>
+        </div>
       </div>
     </main>
   );

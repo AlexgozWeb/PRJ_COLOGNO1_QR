@@ -1,6 +1,6 @@
 import { execSync } from "node:child_process";
 
-const APP_RELEASE = "v02.00";
+const APP_RELEASE = "v03.00";
 
 function resolveBuildRef() {
   const envSha = process.env.VERCEL_GIT_COMMIT_SHA;

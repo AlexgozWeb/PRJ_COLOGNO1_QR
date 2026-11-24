@@ -5,6 +5,7 @@ import { downloadReceipt } from "@/lib/receipt";
 import RegistrationForm, { type Person } from "./RegistrationForm";
 import StatsPage from "./StatsPage";
 import ReportPage from "./ReportPage";
+import AssociatesPage from "./AssociatesPage";
 
 type Kid = { nome: string; cognome: string; dataNascita: string; registered: boolean };
 type MinorTutor = { nome: string; cognome: string; dataNascita: string; luogoNascita: string; registered: boolean };
@@ -14,6 +15,7 @@ type Step =
   | { s: "landing" }
   | { s: "stats" }
   | { s: "report" }
+  | { s: "associates" }
   | { s: "form" }
   | { s: "notfound" }
   | { s: "minor"; person: View; tutors: MinorTutor[] }
@@ -125,8 +127,17 @@ export default function App() {
     setCodeErr("");
     setStep({ s: "landing" });
   };
-  if (step.s === "stats") return <StatsPage code={code} onExit={goHome} onReport={() => setStep({ s: "report" })} />;
+  if (step.s === "stats")
+    return (
+      <StatsPage
+        code={code}
+        onExit={goHome}
+        onReport={() => setStep({ s: "report" })}
+        onAssociates={() => setStep({ s: "associates" })}
+      />
+    );
   if (step.s === "report") return <ReportPage code={code} onBack={() => setStep({ s: "stats" })} />;
+  if (step.s === "associates") return <AssociatesPage code={code} onBack={() => setStep({ s: "stats" })} />;
   return (
     <>
       <main className={`screen${overlay ? " blur" : ""}`}>

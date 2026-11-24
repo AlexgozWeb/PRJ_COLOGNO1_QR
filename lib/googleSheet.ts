@@ -1,6 +1,6 @@
 import { GoogleAuth } from "google-auth-library";
 import { toIsoDate } from "./normalize";
-import type { Registration, SheetRow, SheetStore } from "./types";
+import type { NewRow, Registration, RowUpdate, RowUpdateItem, SheetRow, SheetStore } from "./types";
 
 const SCOPE = "https://www.googleapis.com/auth/spreadsheets";
 
@@ -54,6 +54,11 @@ export function locateConfigParam(
   return { paramIdx, valueFromIdx, rowNumber: null, value: undefined };
 }
 
+export function toSheetSocioCode(codiceSocio: string): number | string {
+  const s = codiceSocio.trim();
+  return /^\d{1,15}$/.test(s) ? Number(s) : s;
+}
+
 function need(name: string): string {
   const v = process.env[name];
   if (!v) throw new Error(`Variabile d'ambiente mancante: ${name}`);
@@ -69,6 +74,12 @@ const HEADERS = {
   dataNascita: "data nascita",
   luogoNascita: "comune nascita",
   email: "email",
+} as const;
+
+const OPTIONAL_HEADERS = {
+  codiceFiscale: "codice fiscale",
+  cellulare: "cellulare",
+  dataDeliberaAmmissione: "data delibera ammissione",
 } as const;
 
 export class GoogleSheetStore implements SheetStore {
@@ -87,6 +98,7 @@ export class GoogleSheetStore implements SheetStore {
   private colM = (process.env.COL_ID || "M").toUpperCase();
   private colN = (process.env.COL_IP || "N").toUpperCase();
   private colO = (process.env.COL_TIMESTAMP || "O").toUpperCase();
+  private numericSheetId?: number;
 
   private async api(path: string, init?: RequestInit): Promise<any> {
     const client = await this.auth.getClient();
@@ -100,20 +112,38 @@ export class GoogleSheetStore implements SheetStore {
     return res.json();
   }
 
+  private resolveHeaderColumns(headerRow: unknown[]) {
+    const header = headerRow.map((h) => String(h ?? "").trim().toLowerCase());
+    const idx = Object.fromEntries(
+      Object.entries(HEADERS).map(([k, h]) => [k, header.indexOf(h)]),
+    ) as Record<keyof typeof HEADERS, number>;
+    for (const [k, i] of Object.entries(idx)) if (i < 0) throw new Error(`Intestazione mancante: ${k}`);
+    const optIdx = Object.fromEntries(
+      Object.entries(OPTIONAL_HEADERS).map(([k, h]) => [k, header.indexOf(h)]),
+    ) as Record<keyof typeof OPTIONAL_HEADERS, number>;
+    const hv = header.indexOf("votante");
+    const P = hv >= 0 ? hv : colIndex(process.env.COL_VOTANTE || "P");
+    return { idx, optIdx, P };
+  }
+
+  private async getNumericSheetId(): Promise<number> {
+    if (this.numericSheetId !== undefined) return this.numericSheetId;
+    const meta = await this.api(`?fields=sheets.properties(sheetId,title)`);
+    const sheets = (meta?.sheets ?? []) as { properties?: { sheetId?: number; title?: string } }[];
+    const match = sheets.find((s) => s.properties?.title === this.sheet);
+    if (match?.properties?.sheetId === undefined) throw new Error(`Foglio non trovato: ${this.sheet}`);
+    this.numericSheetId = match.properties.sheetId;
+    return this.numericSheetId;
+  }
+
   async getRows(): Promise<SheetRow[]> {
     const range = encodeURIComponent(`'${this.sheet}'!A1:Z`);
     const data = await this.api(`/values/${range}?valueRenderOption=UNFORMATTED_VALUE`);
     const values: unknown[][] = data.values ?? [];
     if (!values.length) return [];
-    const header = values[0].map((h) => String(h ?? "").trim().toLowerCase());
-    const idx = Object.fromEntries(
-      Object.entries(HEADERS).map(([k, h]) => [k, header.indexOf(h)]),
-    ) as Record<keyof typeof HEADERS, number>;
-    for (const [k, i] of Object.entries(idx)) if (i < 0) throw new Error(`Intestazione mancante: ${k}`);
+    const { idx, optIdx, P } = this.resolveHeaderColumns(values[0]);
     const L = colIndex(this.colL), M = colIndex(this.colM), O = colIndex(this.colO);
-    const hv = header.indexOf("votante");
-    const P = hv >= 0 ? hv : colIndex(process.env.COL_VOTANTE || "P");
-    const s = (r: unknown[], i: number) => String(r[i] ?? "").trim();
+    const s = (r: unknown[], i: number) => (i >= 0 ? String(r[i] ?? "").trim() : "");
     return values.slice(1).map((r, i) => ({
       rowNumber: i + 2,
       codiceSocio: s(r, idx.codiceSocio),
@@ -121,9 +151,12 @@ export class GoogleSheetStore implements SheetStore {
       nome: s(r, idx.nome),
       tipo: s(r, idx.tipo),
       adultoGiovane: s(r, idx.adultoGiovane),
+      codiceFiscale: s(r, optIdx.codiceFiscale),
       dataNascita: toIsoDate(r[idx.dataNascita]),
       luogoNascita: s(r, idx.luogoNascita),
+      cellulare: s(r, optIdx.cellulare),
       email: s(r, idx.email),
+      dataDeliberaAmmissione: optIdx.dataDeliberaAmmissione >= 0 ? toIsoDate(r[optIdx.dataDeliberaAmmissione]) : null,
       presente: r[L] === true || String(r[L]).toUpperCase() === "TRUE",
       votante: isTruthyFlag(r[P]),
       id: s(r, M),
@@ -131,7 +164,7 @@ export class GoogleSheetStore implements SheetStore {
     }));
   }
 
-  private async updateRows(rowNumbers: number[], l: boolean, m: string, n: string, o: string): Promise<void> {
+  private async setPresenceRows(rowNumbers: number[], l: boolean, m: string, n: string, o: string): Promise<void> {
     if (!rowNumbers.length) return;
     const data = rowNumbers.flatMap((row) => [
       { range: `'${this.sheet}'!${this.colL}${row}`, values: [[l]] },
@@ -146,11 +179,120 @@ export class GoogleSheetStore implements SheetStore {
   }
 
   async writeRegistration(reg: Registration): Promise<void> {
-    await this.updateRows(reg.rowNumbers, true, reg.id, reg.ip, reg.timestamp);
+    await this.setPresenceRows(reg.rowNumbers, true, reg.id, reg.ip, reg.timestamp);
   }
 
   async clearRegistration(rowNumbers: number[]): Promise<void> {
-    await this.updateRows(rowNumbers, false, "", "", "");
+    await this.setPresenceRows(rowNumbers, false, "", "", "");
+  }
+
+  private async readHeaderColumns() {
+    const headerRange = encodeURIComponent(`'${this.sheet}'!1:1`);
+    const headerRes = await this.api(`/values/${headerRange}?valueRenderOption=UNFORMATTED_VALUE`);
+    const headerRow = (headerRes.values?.[0] ?? []) as unknown[];
+    return this.resolveHeaderColumns(headerRow);
+  }
+
+  async updateRows(items: RowUpdateItem[]): Promise<void> {
+    if (!items.length) return;
+    for (const item of items) {
+      if (!Number.isInteger(item.rowNumber) || item.rowNumber < 2) throw new Error("Riga non valida");
+    }
+    const { idx, optIdx, P } = await this.readHeaderColumns();
+
+    // Mappa delle sole colonne modificabili; Tipo e colonne L-O non vengono mai toccati.
+    const data = items.flatMap(({ rowNumber, data: regData }) => {
+      const cells: Array<[number, unknown]> = [
+        [idx.codiceSocio, toSheetSocioCode(regData.codiceSocio)],
+        [idx.cognome, regData.cognome],
+        [idx.nome, regData.nome],
+        [idx.adultoGiovane, regData.adultoGiovane],
+        [idx.dataNascita, regData.dataNascita],
+        [idx.luogoNascita, regData.luogoNascita],
+        [idx.email, regData.email],
+        [P, regData.votante ? "SI" : "NO"],
+      ];
+      if (optIdx.codiceFiscale >= 0) cells.push([optIdx.codiceFiscale, regData.codiceFiscale]);
+      if (optIdx.cellulare >= 0) cells.push([optIdx.cellulare, regData.cellulare]);
+      if (optIdx.dataDeliberaAmmissione >= 0) cells.push([optIdx.dataDeliberaAmmissione, regData.dataDeliberaAmmissione]);
+      return cells.map(([colIdx, val]) => ({
+        range: `'${this.sheet}'!${colLetter(colIdx)}${rowNumber}`,
+        values: [[val]],
+      }));
+    });
+    await this.api(`/values:batchUpdate`, {
+      method: "POST",
+      body: JSON.stringify({ valueInputOption: "RAW", data }),
+    });
+  }
+
+  async updateRow(rowNumber: number, regData: RowUpdate): Promise<void> {
+    await this.updateRows([{ rowNumber, data: regData }]);
+  }
+
+  async appendRows(newRows: NewRow[]): Promise<void> {
+    if (!newRows.length) return;
+    const { idx, optIdx, P } = await this.readHeaderColumns();
+    const L = colIndex(this.colL);
+    const M = colIndex(this.colM);
+    const N = colIndex(this.colN);
+    const O = colIndex(this.colO);
+    const maxCol = Math.max(
+      ...Object.values(idx),
+      ...Object.values(optIdx).filter((i) => i >= 0),
+      L,
+      M,
+      N,
+      O,
+      P,
+    );
+    const values = newRows.map((r) => {
+      const row: unknown[] = Array(maxCol + 1).fill("");
+      row[idx.codiceSocio] = toSheetSocioCode(r.codiceSocio);
+      row[idx.cognome] = r.cognome;
+      row[idx.nome] = r.nome;
+      row[idx.tipo] = r.tipo;
+      row[idx.adultoGiovane] = r.adultoGiovane;
+      if (optIdx.codiceFiscale >= 0) row[optIdx.codiceFiscale] = r.codiceFiscale;
+      row[idx.dataNascita] = r.dataNascita;
+      row[idx.luogoNascita] = r.luogoNascita;
+      if (optIdx.cellulare >= 0) row[optIdx.cellulare] = r.cellulare;
+      row[idx.email] = r.email;
+      if (optIdx.dataDeliberaAmmissione >= 0) row[optIdx.dataDeliberaAmmissione] = r.dataDeliberaAmmissione;
+      row[L] = false;
+      row[M] = "";
+      row[N] = "";
+      row[O] = "";
+      row[P] = r.votante ? "SI" : "NO";
+      return row;
+    });
+    const appendRange = encodeURIComponent(`'${this.sheet}'!A1`);
+    await this.api(`/values/${appendRange}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`, {
+      method: "POST",
+      body: JSON.stringify({ values }),
+    });
+  }
+
+  async deleteRow(rowNumber: number): Promise<void> {
+    if (!Number.isInteger(rowNumber) || rowNumber < 2) throw new Error("Riga non valida");
+    const sheetId = await this.getNumericSheetId();
+    await this.api(`:batchUpdate`, {
+      method: "POST",
+      body: JSON.stringify({
+        requests: [
+          {
+            deleteDimension: {
+              range: {
+                sheetId,
+                dimension: "ROWS",
+                startIndex: rowNumber - 1,
+                endIndex: rowNumber,
+              },
+            },
+          },
+        ],
+      }),
+    });
   }
 
   async getRegistrationsClosed(): Promise<boolean> {

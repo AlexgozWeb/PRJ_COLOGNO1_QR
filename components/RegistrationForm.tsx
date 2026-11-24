@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import DatePickerButton from "./DatePickerButton";
 
 export interface Person {
   nome: string;
@@ -75,12 +76,11 @@ export default function RegistrationForm({
             value={v.dataNascita}
             onChange={(e) => set("dataNascita")(maskDate(e.target.value))}
           />
-          <input
-            type="date"
-            aria-label="Selettore data"
+          <DatePickerButton
+            ariaLabel="Selettore data"
             value={isoForPicker}
             max={new Date().toISOString().slice(0, 10)}
-            onChange={(e) => e.target.value && set("dataNascita")(e.target.value.split("-").reverse().join("/"))}
+            onPick={(d) => set("dataNascita")(d)}
           />
         </div>
         {touched && errors.dataNascita && <small>{errors.dataNascita}</small>}

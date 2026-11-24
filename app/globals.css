@@ -33,12 +33,52 @@ h2 { margin: 0 0 12px; font-size: 1.3rem; }
 .overlay { position: fixed; inset: 0; display: flex; align-items: flex-start; justify-content: center; padding: 20px 16px; background: rgba(15,23,42,.45); overflow-y: auto; }
 .card { background: var(--card); color: var(--ink); width: 100%; max-width: 440px; border-radius: 20px; padding: 24px; margin: auto 0; text-align: left; box-shadow: 0 20px 60px rgba(0,0,0,.5); }
 .field { display: block; margin-bottom: 14px; }
-.field span { display: block; font-size: .85rem; font-weight: 600; margin-bottom: 4px; }
+.field > span { display: block; font-size: .85rem; font-weight: 600; margin-bottom: 4px; }
 .field input { width: 100%; font-size: 1rem; padding: 12px; border: 1.5px solid #cbd5e1; border-radius: 10px; color: var(--ink); background: #fff; }
 .field input.bad { border-color: var(--err); }
 .field small { color: var(--err); }
-.dateRow { display: flex; gap: 8px; }
-.dateRow input[type="date"] { width: 52px; padding: 0; color: transparent; }
+.dateRow { display: flex; gap: 8px; align-items: stretch; }
+.dateRow > input { flex: 1; min-width: 0; }
+.datePickerWrap { position: relative; width: 46px; flex: none; display: inline-flex; margin-bottom: 0; }
+.datePickerNative {
+  position: absolute;
+  inset: 0;
+  width: 100% !important;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+  z-index: 2;
+  margin: 0;
+  padding: 0 !important;
+  border: 0 !important;
+}
+.datePickerNative::-webkit-calendar-picker-indicator {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  cursor: pointer;
+}
+.datePickerNative:disabled { cursor: not-allowed; }
+.datePickerIcon {
+  width: 100%;
+  height: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 0;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 10px;
+  background: #fff;
+  color: var(--ink);
+  pointer-events: none;
+  transition: background .15s, border-color .15s;
+}
+.datePickerNative:not(:disabled):hover + .datePickerIcon { background: #f8fafc; border-color: #94a3b8; }
+.datePickerNative:focus-visible + .datePickerIcon { border-color: var(--ink); box-shadow: 0 0 0 2px rgba(15, 23, 42, .15); }
+.datePickerNative:disabled + .datePickerIcon { background: #f1f5f9; color: #94a3b8; }
 .actions { display: flex; flex-direction: column; gap: 10px; margin-top: 18px; align-items: stretch; }
 .card .btn { width: 100%; }
 dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; }
@@ -108,8 +148,101 @@ dd { margin: 0; font-weight: 600; word-break: break-word; }
 .confirmActions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
 .confirmActions .btn { min-width: 100px; padding: 8px 16px; font-size: .85rem; }
 .confirmActions .btn.cancel { background: transparent; color: #f8fafc; border: 2px solid #94a3b8; }
-.statsActions { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; width: 100%; max-width: 520px; }
+.statsActions { display: flex; flex-direction: column; align-items: center; gap: 8px; width: 100%; max-width: 520px; }
+.statsActionRow { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
 .statsActions .btn { padding: 8px 14px; font-size: .85rem; min-width: 0; white-space: nowrap; }
+.assocToolbar { width: 100%; max-width: 1000px; display: flex; flex-wrap: wrap; justify-content: flex-start; gap: 8px; }
+.assocToolbar .btnSmall { padding: 8px 16px; }
+.actionsCell { white-space: nowrap; text-align: center; }
+.actionsWrap { display: inline-flex; align-items: center; gap: 4px; }
+.iconBtn {
+  appearance: none;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  padding: 5px 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background .15s, border-color .15s, transform .1s;
+}
+.iconBtn.view { color: #60a5fa; }
+.iconBtn.edit { color: #fb923c; }
+.iconBtn.del { color: #94a3b8; }
+.iconBtn:not(:disabled):hover { background: rgba(255, 255, 255, .1); border-color: #475569; transform: scale(1.08); }
+.iconBtn:disabled { opacity: .5; cursor: not-allowed; }
+.card.editCard { max-width: 640px; }
+.editGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 14px; }
+.field select {
+  width: 100%;
+  font-size: 1rem;
+  padding: 12px;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 10px;
+  color: var(--ink);
+  background: #fff;
+}
+.field select.bad { border-color: var(--err); }
+.field input:disabled, .field select:disabled { background: #f1f5f9; color: #64748b; cursor: not-allowed; }
+.youthBox {
+  background: #f8fafc;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 12px;
+  padding: 12px;
+  margin-bottom: 14px;
+}
+.youthTitle { display: block; font-size: .88rem; font-weight: 700; margin-bottom: 8px; color: var(--ink); }
+.youthHeader { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+.youthHeader .youthTitle { margin-bottom: 0; }
+.youthMeta { color: #64748b; font-size: .82rem; }
+.youthSearch {
+  width: 100%;
+  font-size: .92rem;
+  padding: 9px 11px;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 8px;
+  color: var(--ink);
+  background: #fff;
+  margin-bottom: 8px;
+}
+.youthList {
+  max-height: 168px;
+  overflow-y: auto;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #fff;
+  padding: 4px;
+}
+.youthItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  font-size: .88rem;
+  cursor: pointer;
+}
+.youthItem:hover { background: #f1f5f9; }
+.youthItem input { width: 17px; height: 17px; flex: none; accent-color: var(--ok); }
+.youthEmpty { margin: 0; padding: 10px; font-size: .85rem; color: #64748b; text-align: center; }
+.youthStatus { margin: 8px 0 0; font-size: .82rem; color: #475569; }
+.youthStatus.warn { color: var(--err); font-weight: 600; }
+.tutorFieldset { border: 0; padding: 0; margin: 0; min-width: 0; transition: opacity .15s; }
+.tutorFieldset:disabled { opacity: .55; }
+.formAlert {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #991b1b;
+  font-size: .9rem;
+  font-weight: 600;
+}
+@media (max-width: 540px) {
+  .editGrid { grid-template-columns: 1fr; }
+}
 .minorWarn { margin: 14px 0 0; }
 .tutorList li.tutorRow { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin: 6px 0; }
 .tutorInfo { display: inline-flex; align-items: center; }

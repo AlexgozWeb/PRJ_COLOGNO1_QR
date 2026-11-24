@@ -8,7 +8,8 @@ import type { PersonInput } from "./service";
 const g = globalThis as unknown as { __store?: SheetStore; __hits?: Map<string, number[]> };
 
 export function getStore(): SheetStore {
-  if (!g.__store) g.__store = process.env.MOCK_SHEET === "1" ? new MockSheetStore() : new GoogleSheetStore();
+  const StoreClass = process.env.MOCK_SHEET === "1" ? MockSheetStore : GoogleSheetStore;
+  if (!g.__store || !(g.__store instanceof StoreClass)) g.__store = new StoreClass();
   return g.__store;
 }
 

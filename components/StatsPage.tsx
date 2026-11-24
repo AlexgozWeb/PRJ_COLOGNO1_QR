@@ -1,6 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import DatePickerButton from "./DatePickerButton";
+import { validateAssemblyInfo } from "../lib/config";
+import { toIsoDate } from "../lib/normalize";
+import type { AssemblyInfo } from "../lib/types";
 import { APP_VERSION } from "../lib/version";
 
 type Stats = {
@@ -11,7 +15,19 @@ type Stats = {
   votantiRegistrati: number;
   aggiornato: string;
   registrationsClosed: boolean;
+  assemblyName: string;
+  assemblyDate: string;
 };
+
+function maskDate(v: string): string {
+  const digits = v.replace(/\D/g, "").slice(0, 8);
+  return [digits.slice(0, 2), digits.slice(2, 4), digits.slice(4)].filter(Boolean).join("/");
+}
+
+function toPickerIso(d: string): string {
+  if (!/^\d{2}\/\d{2}\/\d{4}$/.test(d.trim())) return "";
+  return toIsoDate(d.trim()) ?? "";
+}
 
 /** Colore in base alla % di aventi diritto presenti; verde solo con maggioranza (> 50%). */
 export function quorumColor(reg: number, tot: number): string {
@@ -44,17 +60,30 @@ export default function StatsPage({
   onExit,
   onReport,
   onAssociates,
+  onAssemblyChange,
 }: {
   code: string;
   onExit: () => void;
   onReport: () => void;
   onAssociates: () => void;
+  onAssemblyChange?: (info: AssemblyInfo) => void;
 }) {
   const [s, setS] = useState<Stats | null>(null);
   const [err, setErr] = useState("");
   const [confirmToggle, setConfirmToggle] = useState(false);
   const [toggling, setToggling] = useState(false);
+
+  const [draftName, setDraftName] = useState("");
+  const [draftDate, setDraftDate] = useState("");
+  const [dirty, setDirty] = useState(false);
+  const [savingAssembly, setSavingAssembly] = useState(false);
+  const [assemblyErrors, setAssemblyErrors] = useState<Record<string, string>>({});
+  const [assemblyErr, setAssemblyErr] = useState("");
+  const [assemblyOk, setAssemblyOk] = useState("");
+
   const seq = useRef(0);
+  const dirtyRef = useRef(false);
+  const savingRef = useRef(false);
 
   useEffect(() => {
     let stop = false;
@@ -64,7 +93,14 @@ export default function StatsPage({
         const res = await fetch("/api/stats", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ accessCode: code }) });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(data.error || "Errore");
-        if (!stop && mySeq === seq.current) { setS(data); setErr(""); }
+        if (!stop && mySeq === seq.current) {
+          setS(data);
+          setErr("");
+          if (!dirtyRef.current && !savingRef.current) {
+            setDraftName(data.assemblyName ?? "");
+            setDraftDate(data.assemblyDate ?? "");
+          }
+        }
       } catch (e) {
         if (!stop && mySeq === seq.current) setErr((e as Error).message);
       }
@@ -96,6 +132,75 @@ export default function StatsPage({
     }
   }
 
+  async function onSaveAssembly(e: React.FormEvent) {
+    e.preventDefault();
+    if (!s || savingAssembly) return;
+    const parsed = validateAssemblyInfo({ assemblyName: draftName, assemblyDate: draftDate });
+    if (!parsed.ok) {
+      setAssemblyErrors(parsed.errors);
+      setAssemblyOk("");
+      return;
+    }
+
+    seq.current += 1;
+    setSavingAssembly(true);
+    savingRef.current = true;
+    setAssemblyErrors({});
+    setAssemblyErr("");
+    setAssemblyOk("");
+    try {
+      const res = await fetch("/api/config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          accessCode: code,
+          assemblyName: parsed.data.assemblyName,
+          assemblyDate: parsed.data.assemblyDate,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        if (res.status === 400 && data.errors) {
+          setAssemblyErrors(data.errors);
+          return;
+        }
+        throw new Error(data.error || "Errore");
+      }
+      const nextInfo: AssemblyInfo = {
+        assemblyName: data.assemblyName,
+        assemblyDate: data.assemblyDate,
+      };
+      setS((prev) => (prev ? { ...prev, ...nextInfo } : prev));
+      setDraftName(nextInfo.assemblyName);
+      setDraftDate(nextInfo.assemblyDate);
+      setDirty(false);
+      dirtyRef.current = false;
+      setAssemblyOk("Salvato ✓");
+      onAssemblyChange?.(nextInfo);
+    } catch (e) {
+      setAssemblyErr((e as Error).message);
+    } finally {
+      setSavingAssembly(false);
+      savingRef.current = false;
+    }
+  }
+
+  function editAssemblyField(kind: "name" | "date", val: string) {
+    if (kind === "name") setDraftName(val);
+    else setDraftDate(val);
+    setDirty(true);
+    dirtyRef.current = true;
+    setAssemblyOk("");
+    setAssemblyErr("");
+    setAssemblyErrors((prev) => {
+      const key = kind === "name" ? "assemblyName" : "assemblyDate";
+      if (!prev[key]) return prev;
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+  }
+
   const quorum = s ? Math.floor(s.votantiTotali / 2) + 1 : 0;
   return (
     <main className="screen stats">
@@ -105,6 +210,47 @@ export default function StatsPage({
         <span className={`statusPill ${s.registrationsClosed ? "closed" : "open"}`}>
           {s.registrationsClosed ? "Registrazioni CHIUSE" : "Registrazioni APERTE"}
         </span>
+      )}
+      {s && (
+        <form className="assemblyCard" onSubmit={onSaveAssembly} noValidate>
+          <label className="field assemblyField">
+            <span>Nome Assemblea</span>
+            <input
+              className={assemblyErrors.assemblyName ? "bad" : ""}
+              maxLength={120}
+              value={draftName}
+              disabled={savingAssembly}
+              onChange={(e) => editAssemblyField("name", e.target.value)}
+            />
+            {assemblyErrors.assemblyName && <small>{assemblyErrors.assemblyName}</small>}
+          </label>
+          <label className="field assemblyField">
+            <span>Data Assemblea</span>
+            <div className="dateRow">
+              <input
+                className={assemblyErrors.assemblyDate ? "bad" : ""}
+                inputMode="numeric"
+                placeholder="GG/MM/AAAA"
+                value={draftDate}
+                disabled={savingAssembly}
+                onChange={(e) => editAssemblyField("date", maskDate(e.target.value))}
+              />
+              <DatePickerButton
+                ariaLabel="Selettore data assemblea"
+                value={toPickerIso(draftDate)}
+                onPick={(d) => editAssemblyField("date", d)}
+              />
+            </div>
+            {assemblyErrors.assemblyDate && <small>{assemblyErrors.assemblyDate}</small>}
+          </label>
+          <div className="assemblyFooter">
+            <button className="btn btnSmall okBtn" type="submit" disabled={savingAssembly || !dirty}>
+              {savingAssembly ? "Salvataggio…" : "Salva"}
+            </button>
+            {assemblyOk && <span className="assemblyMsgOk">{assemblyOk}</span>}
+            {assemblyErr && <span className="assemblyMsgErr">{assemblyErr}</span>}
+          </div>
+        </form>
       )}
       {err && <p className="sub" style={{ color: "#fca5a5" }}>{err}</p>}
       {!s && !err && <div className="spinner" role="status" aria-label="Caricamento" />}

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { downloadReceipt } from "@/lib/receipt";
+import { DEFAULT_ASSEMBLY_DATE, DEFAULT_ASSEMBLY_NAME, type AssemblyInfo } from "@/lib/types";
 import RegistrationForm, { type Person } from "./RegistrationForm";
 import StatsPage from "./StatsPage";
 import ReportPage from "./ReportPage";
@@ -40,6 +41,31 @@ export default function App() {
   const [code, setCode] = useState("");
   const [codeErr, setCodeErr] = useState("");
   const [consent, setConsent] = useState(false);
+  const [assembly, setAssembly] = useState<AssemblyInfo>({
+    assemblyName: DEFAULT_ASSEMBLY_NAME,
+    assemblyDate: DEFAULT_ASSEMBLY_DATE,
+  });
+
+  useEffect(() => {
+    let active = true;
+    fetch("/api/config", { cache: "no-store" })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((d) => {
+        if (active && d?.assemblyName && d?.assemblyDate) {
+          setAssembly({ assemblyName: String(d.assemblyName), assemblyDate: String(d.assemblyDate) });
+        }
+      })
+      .catch(() => {});
+    const t = setTimeout(() => setStep({ s: "landing" }), 1800);
+    return () => {
+      active = false;
+      clearTimeout(t);
+    };
+  }, []);
+
+  useEffect(() => {
+    document.title = `${assembly.assemblyName}${assembly.assemblyDate ? ` ${assembly.assemblyDate}` : ""}`;
+  }, [assembly]);
 
   async function onAccess(e: React.FormEvent) {
     e.preventDefault();
@@ -61,11 +87,6 @@ export default function App() {
       setBusy(false);
     }
   }
-
-  useEffect(() => {
-    const t = setTimeout(() => setStep({ s: "landing" }), 1800);
-    return () => clearTimeout(t);
-  }, []);
 
   async function onSubmit(p: Person) {
     setBusy(true);
@@ -134,15 +155,24 @@ export default function App() {
         onExit={goHome}
         onReport={() => setStep({ s: "report" })}
         onAssociates={() => setStep({ s: "associates" })}
+        onAssemblyChange={setAssembly}
       />
     );
-  if (step.s === "report") return <ReportPage code={code} onBack={() => setStep({ s: "stats" })} />;
+  if (step.s === "report") return <ReportPage code={code} assembly={assembly} onBack={() => setStep({ s: "stats" })} />;
   if (step.s === "associates") return <AssociatesPage code={code} onBack={() => setStep({ s: "stats" })} />;
   return (
     <>
       <main className={`screen${overlay ? " blur" : ""}`}>
         <img className="logo" src="/logo.png" alt="Gruppo Scout Cologno Monzese 1" />
-        <h1>Registrazione<br />Assemblea dei Soci<br />27/11/2026</h1>
+        <h1>
+          {assembly.assemblyName}
+          {assembly.assemblyDate && (
+            <>
+              <br />
+              {assembly.assemblyDate}
+            </>
+          )}
+        </h1>
         <p className="sub">Gruppo Scout Cologno Monzese 1 — registra qui la tua presenza all'Assemblea.</p>
         <form className="accessForm" onSubmit={onAccess}>
           <label className="field">
@@ -252,7 +282,7 @@ export default function App() {
             <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} />
             <span>
               Acconsento a comunicare i miei dati al Gruppo Scout Cologno Monzese 1 esclusivamente per la gestione delle presenze
-              all&apos;Assemblea dei Soci del 27/11/2026. Se sono tutore, la registrazione vale anche per eventuali ragazzi minorenni seguiti non ancora registrati.
+              all&apos;evento &quot;{assembly.assemblyName}&quot;{assembly.assemblyDate ? ` del ${assembly.assemblyDate}` : ""}. Se sono tutore, la registrazione vale anche per eventuali ragazzi minorenni seguiti non ancora registrati.
             </span>
           </label>
           <div className="actions">
@@ -283,7 +313,7 @@ export default function App() {
             <p className="note">Presenza registrata anche per: {step.kids.map((k) => `${k.nome} ${k.cognome}`).join(", ")}.</p>
           )}
           <div className="actions">
-            <button className="btn" onClick={() => downloadReceipt(step.person, step.id, step.timestamp, step.kids)}>Salva ricevuta (.txt)</button>
+            <button className="btn" onClick={() => downloadReceipt(step.person, step.id, step.timestamp, step.kids, assembly)}>Salva ricevuta (.txt)</button>
             <button className="btn secondary" onClick={goHome}>Torna alla home</button>
           </div>
         </div></div>

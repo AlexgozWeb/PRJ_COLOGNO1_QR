@@ -1,3 +1,5 @@
+import { DEFAULT_ASSEMBLY_DATE, DEFAULT_ASSEMBLY_NAME, type AssemblyInfo } from "./types";
+
 export interface ReceiptPerson {
   nome: string;
   cognome: string;
@@ -11,12 +13,21 @@ export interface ReceiptKid {
   dataNascita: string;
 }
 
-export function downloadReceipt(p: ReceiptPerson, id: string, ts: string, kids: ReceiptKid[]) {
+export function downloadReceipt(
+  p: ReceiptPerson,
+  id: string,
+  ts: string,
+  kids: ReceiptKid[],
+  assembly?: AssemblyInfo,
+) {
+  const name = assembly?.assemblyName?.trim() || DEFAULT_ASSEMBLY_NAME;
+  const date = assembly?.assemblyDate?.trim() || DEFAULT_ASSEMBLY_DATE;
+  const headerLine = `${name}${date ? ` ${date}` : ""} - Gruppo Scout Cologno Monzese 1`;
   const list = kids.length
     ? ["", "Registrati insieme a te (ragazzi):", ...kids.map((k) => `- ${k.cognome} ${k.nome} (${k.dataNascita})`)]
     : [];
   const text = [
-    "Assemblea dei Soci 27/11/2026 - Gruppo Scout Cologno Monzese 1",
+    headerLine,
     "RICEVUTA DI REGISTRAZIONE PRESENZA",
     "",
     `Cognome: ${p.cognome}`,

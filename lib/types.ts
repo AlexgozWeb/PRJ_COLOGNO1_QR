@@ -41,6 +41,18 @@ export interface RowUpdateItem {
   data: RowUpdate;
 }
 
+export const DEFAULT_ASSEMBLY_NAME = "Registrazione Assemblea dei Soci";
+export const DEFAULT_ASSEMBLY_DATE = "27/11/2026";
+
+export interface AssemblyInfo {
+  assemblyName: string;
+  assemblyDate: string; // GG/MM/AAAA
+}
+
+export interface AppConfig extends AssemblyInfo {
+  registrationsClosed: boolean;
+}
+
 export interface Registration {
   rowNumbers: number[];
   id: string;
@@ -56,6 +68,8 @@ export interface SheetStore {
   updateRows(updates: RowUpdateItem[]): Promise<void>;
   deleteRow(rowNumber: number): Promise<void>;
   appendRows(rows: NewRow[]): Promise<void>;
+  getAppConfig(): Promise<AppConfig>;
   getRegistrationsClosed(): Promise<boolean>;
   setRegistrationsClosed(closed: boolean): Promise<void>;
+  setAssemblyInfo(info: AssemblyInfo): Promise<void>;
 }

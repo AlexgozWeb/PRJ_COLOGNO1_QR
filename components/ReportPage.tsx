@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { downloadReceipt } from "@/lib/receipt";
+import type { AssemblyInfo } from "@/lib/types";
 import { APP_VERSION } from "../lib/version";
 
 type Row = { codiceSocio: string; nome: string; cognome: string; dataNascita: string; luogoNascita: string; tipo: string; presente: boolean };
@@ -55,7 +56,15 @@ const DEFAULT_ORDER: Sort[] = [
   { key: "presente", dir: -1 },
 ];
 
-export default function ReportPage({ code, onBack }: { code: string; onBack: () => void }) {
+export default function ReportPage({
+  code,
+  assembly,
+  onBack,
+}: {
+  code: string;
+  assembly?: AssemblyInfo;
+  onBack: () => void;
+}) {
   const [rows, setRows] = useState<Row[] | null>(null);
   const [closed, setClosed] = useState(false);
   const [err, setErr] = useState("");
@@ -484,7 +493,7 @@ export default function ReportPage({ code, onBack }: { code: string; onBack: () 
             <p className="note">Presenza registrata anche per: {modal.kids.map((k) => `${k.nome} ${k.cognome}`).join(", ")}.</p>
           )}
           <div className="actions">
-            <button className="btn" onClick={() => downloadReceipt(modal.person, modal.id, modal.timestamp, modal.kids)}>Salva ricevuta (.txt)</button>
+            <button className="btn" onClick={() => downloadReceipt(modal.person, modal.id, modal.timestamp, modal.kids, assembly)}>Salva ricevuta (.txt)</button>
             <button className="btn secondary" onClick={() => setModal(null)}>Torna al report</button>
           </div>
         </div></div>

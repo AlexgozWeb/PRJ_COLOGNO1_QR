@@ -34,9 +34,11 @@ export function computeStats(rows: SheetRow[]): Stats {
 
 export interface AdminStats extends Stats {
   registrationsClosed: boolean;
+  assemblyName: string;
+  assemblyDate: string;
 }
 
 export async function getStats(store: SheetStore): Promise<AdminStats> {
-  const [rows, registrationsClosed] = await Promise.all([store.getRows(), store.getRegistrationsClosed()]);
-  return { ...computeStats(rows), registrationsClosed };
+  const [rows, cfg] = await Promise.all([store.getRows(), store.getAppConfig()]);
+  return { ...computeStats(rows), ...cfg };
 }

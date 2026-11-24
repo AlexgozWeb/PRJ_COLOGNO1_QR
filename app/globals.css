@@ -104,6 +104,33 @@ dd { margin: 0; font-weight: 600; word-break: break-word; }
 .accessForm .field span { color: var(--muted); }
 .accessForm .field small { color: #fca5a5; }
 .stats { gap: 14px; }
+.assemblyCard {
+  width: 100%;
+  max-width: 420px;
+  background: #334155;
+  border: 1px solid #475569;
+  border-radius: 14px;
+  padding: 12px 14px;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.assemblyField { margin-bottom: 0; }
+.assemblyField > span { color: #cbd5e1; font-size: .8rem; }
+.assemblyField input {
+  background: #0f172a;
+  border-color: #475569;
+  color: var(--text);
+  padding: 9px 11px;
+  font-size: .92rem;
+}
+.assemblyField small { color: #fca5a5; }
+.assemblyCard .datePickerIcon { background: #0f172a; border-color: #475569; color: var(--text); }
+.assemblyCard .datePickerNative:not(:disabled):hover + .datePickerIcon { background: #1e293b; border-color: #64748b; }
+.assemblyFooter { display: flex; align-items: center; gap: 10px; min-height: 30px; }
+.assemblyMsgOk { font-size: .84rem; font-weight: 700; color: #86efac; }
+.assemblyMsgErr { font-size: .84rem; font-weight: 700; color: #fca5a5; }
 .statGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 100%; max-width: 420px; }
 .stat { background: #334155; border-radius: 12px; padding: 12px; text-align: center; }
 .stat b { display: block; font-size: 2rem; }

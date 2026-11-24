@@ -1,6 +1,17 @@
 import { GoogleAuth } from "google-auth-library";
-import { toIsoDate } from "./normalize";
-import type { NewRow, Registration, RowUpdate, RowUpdateItem, SheetRow, SheetStore } from "./types";
+import { isoToItalian, toIsoDate } from "./normalize";
+import {
+  DEFAULT_ASSEMBLY_DATE,
+  DEFAULT_ASSEMBLY_NAME,
+  type AppConfig,
+  type AssemblyInfo,
+  type NewRow,
+  type Registration,
+  type RowUpdate,
+  type RowUpdateItem,
+  type SheetRow,
+  type SheetStore,
+} from "./types";
 
 const SCOPE = "https://www.googleapis.com/auth/spreadsheets";
 
@@ -59,6 +70,29 @@ export function toSheetSocioCode(codiceSocio: string): number | string {
   return /^\d{1,15}$/.test(s) ? Number(s) : s;
 }
 
+export function parseConfigDate(v: unknown): string {
+  if (v === undefined || v === null) return "";
+  const raw = String(v).trim();
+  if (!raw) return "";
+  const iso = toIsoDate(typeof v === "number" ? v : raw);
+  return iso ? isoToItalian(iso) : raw;
+}
+
+export function extractAppConfig(values: unknown[][]): AppConfig {
+  const closedLoc = locateConfigParam(values, "REGISTRATIONS_CLOSED");
+  const nameLoc = locateConfigParam(values, "ASSEMBLY_NAME");
+  const dateLoc = locateConfigParam(values, "ASSEMBLY_DATE");
+
+  const rawName = nameLoc.rowNumber !== null ? String(nameLoc.value ?? "").trim() : "";
+  const parsedDate = dateLoc.rowNumber !== null ? parseConfigDate(dateLoc.value) : "";
+
+  return {
+    registrationsClosed: closedLoc.rowNumber !== null ? isTruthyFlag(closedLoc.value) : false,
+    assemblyName: rawName || DEFAULT_ASSEMBLY_NAME,
+    assemblyDate: parsedDate || DEFAULT_ASSEMBLY_DATE,
+  };
+}
+
 function need(name: string): string {
   const v = process.env[name];
   if (!v) throw new Error(`Variabile d'ambiente mancante: ${name}`);
@@ -94,6 +128,8 @@ export class GoogleSheetStore implements SheetStore {
   private sheet = process.env.SHEET_NAME || "Presenze";
   private configSheet = process.env.CONFIG_SHEET_NAME || "Config";
   private static readonly CLOSED_PARAM = "REGISTRATIONS_CLOSED";
+  private static readonly ASSEMBLY_NAME_PARAM = "ASSEMBLY_NAME";
+  private static readonly ASSEMBLY_DATE_PARAM = "ASSEMBLY_DATE";
   private colL = (process.env.COL_PRESENZA || "L").toUpperCase();
   private colM = (process.env.COL_ID || "M").toUpperCase();
   private colN = (process.env.COL_IP || "N").toUpperCase();
@@ -295,29 +331,20 @@ export class GoogleSheetStore implements SheetStore {
     });
   }
 
-  async getRegistrationsClosed(): Promise<boolean> {
+  private async readConfigValues(): Promise<unknown[][] | null> {
     const range = encodeURIComponent(`'${this.configSheet}'!A1:C`);
-    let values: unknown[][];
     try {
       const data = await this.api(`/values/${range}?valueRenderOption=UNFORMATTED_VALUE`);
-      values = data.values ?? [];
+      return data.values ?? [];
     } catch (e) {
-      if (e instanceof SheetsError && e.status === 400) return false;
+      if (e instanceof SheetsError && e.status === 400) return null;
       throw e;
     }
-    const loc = locateConfigParam(values, GoogleSheetStore.CLOSED_PARAM);
-    return loc.rowNumber !== null ? isTruthyFlag(loc.value) : false;
   }
 
-  async setRegistrationsClosed(closed: boolean): Promise<void> {
-    const val = closed ? 1 : 0;
-    const range = encodeURIComponent(`'${this.configSheet}'!A1:C`);
-    let values: unknown[][] | null = null;
-    try {
-      const data = await this.api(`/values/${range}?valueRenderOption=UNFORMATTED_VALUE`);
-      values = data.values ?? [];
-    } catch (e) {
-      if (!(e instanceof SheetsError && e.status === 400)) throw e;
+  private async upsertConfigParams(entries: Array<[string, string | number]>): Promise<void> {
+    let values = await this.readConfigValues();
+    if (values === null) {
       await this.api(`:batchUpdate`, {
         method: "POST",
         body: JSON.stringify({ requests: [{ addSheet: { properties: { title: this.configSheet } } }] }),
@@ -331,11 +358,8 @@ export class GoogleSheetStore implements SheetStore {
           valueInputOption: "RAW",
           data: [
             {
-              range: `'${this.configSheet}'!A1:C2`,
-              values: [
-                ["parameter", "value from", "value to"],
-                [GoogleSheetStore.CLOSED_PARAM, val, ""],
-              ],
+              range: `'${this.configSheet}'!A1:C${entries.length + 1}`,
+              values: [["parameter", "value from", "value to"], ...entries.map(([k, v]) => [k, v, ""])],
             },
           ],
         }),
@@ -343,17 +367,46 @@ export class GoogleSheetStore implements SheetStore {
       return;
     }
 
-    const loc = locateConfigParam(values, GoogleSheetStore.CLOSED_PARAM);
-    const data =
-      loc.rowNumber !== null
-        ? [{ range: `'${this.configSheet}'!${colLetter(loc.valueFromIdx)}${loc.rowNumber}`, values: [[val]] }]
-        : [
-            { range: `'${this.configSheet}'!${colLetter(loc.paramIdx)}${values.length + 1}`, values: [[GoogleSheetStore.CLOSED_PARAM]] },
-            { range: `'${this.configSheet}'!${colLetter(loc.valueFromIdx)}${values.length + 1}`, values: [[val]] },
-          ];
+    let nextRow = values.length + 1;
+    const data: Array<{ range: string; values: unknown[][] }> = [];
+    for (const [param, val] of entries) {
+      const loc = locateConfigParam(values, param);
+      if (loc.rowNumber !== null) {
+        data.push({
+          range: `'${this.configSheet}'!${colLetter(loc.valueFromIdx)}${loc.rowNumber}`,
+          values: [[val]],
+        });
+      } else {
+        const r = nextRow++;
+        data.push(
+          { range: `'${this.configSheet}'!${colLetter(loc.paramIdx)}${r}`, values: [[param]] },
+          { range: `'${this.configSheet}'!${colLetter(loc.valueFromIdx)}${r}`, values: [[val]] },
+        );
+      }
+    }
     await this.api(`/values:batchUpdate`, {
       method: "POST",
       body: JSON.stringify({ valueInputOption: "RAW", data }),
     });
+  }
+
+  async getAppConfig(): Promise<AppConfig> {
+    const values = await this.readConfigValues();
+    return extractAppConfig(values ?? []);
+  }
+
+  async getRegistrationsClosed(): Promise<boolean> {
+    return (await this.getAppConfig()).registrationsClosed;
+  }
+
+  async setRegistrationsClosed(closed: boolean): Promise<void> {
+    await this.upsertConfigParams([[GoogleSheetStore.CLOSED_PARAM, closed ? 1 : 0]]);
+  }
+
+  async setAssemblyInfo(info: AssemblyInfo): Promise<void> {
+    await this.upsertConfigParams([
+      [GoogleSheetStore.ASSEMBLY_NAME_PARAM, info.assemblyName],
+      [GoogleSheetStore.ASSEMBLY_DATE_PARAM, info.assemblyDate],
+    ]);
   }
 }

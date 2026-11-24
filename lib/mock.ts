@@ -1,5 +1,16 @@
 import { toIsoDate } from "./normalize";
-import type { NewRow, Registration, RowUpdate, RowUpdateItem, SheetRow, SheetStore } from "./types";
+import {
+  DEFAULT_ASSEMBLY_DATE,
+  DEFAULT_ASSEMBLY_NAME,
+  type AppConfig,
+  type AssemblyInfo,
+  type NewRow,
+  type Registration,
+  type RowUpdate,
+  type RowUpdateItem,
+  type SheetRow,
+  type SheetStore,
+} from "./types";
 
 const normMockCode = (code: string) => {
   const s = code.trim();
@@ -30,7 +41,12 @@ export function fakeRows(): SheetRow[] {
 }
 
 export class MockSheetStore implements SheetStore {
-  constructor(private rows: SheetRow[] = fakeRows(), private closed = false) {}
+  constructor(
+    private rows: SheetRow[] = fakeRows(),
+    private closed = false,
+    private assemblyName = DEFAULT_ASSEMBLY_NAME,
+    private assemblyDate = DEFAULT_ASSEMBLY_DATE,
+  ) {}
   async getRows() {
     return this.rows.map((r) => ({ ...r }));
   }
@@ -96,10 +112,21 @@ export class MockSheetStore implements SheetStore {
       });
     }
   }
+  async getAppConfig(): Promise<AppConfig> {
+    return {
+      registrationsClosed: this.closed,
+      assemblyName: this.assemblyName,
+      assemblyDate: this.assemblyDate,
+    };
+  }
   async getRegistrationsClosed() {
     return this.closed;
   }
   async setRegistrationsClosed(closed: boolean) {
     this.closed = closed;
+  }
+  async setAssemblyInfo(info: AssemblyInfo) {
+    this.assemblyName = info.assemblyName;
+    this.assemblyDate = info.assemblyDate;
   }
 }
